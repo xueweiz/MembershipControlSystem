@@ -41,6 +41,13 @@ void receiveUDP(int sockfd)
     fromlen = sizeof addr;
     byte_count = recvfrom(sockfd, buf, sizeof buf, 0, &addr, &fromlen);
 
+    for (int i = 0; i < 14; ++i)
+    {
+        printf("%d \n", (int)addr.sa_data[i]);
+    }
+
+    printf("\nEnd addres\n");
+
     for (int i = 0; i < sizeof buf; ++i)
     {
         printf("%c - ", buf[i]);

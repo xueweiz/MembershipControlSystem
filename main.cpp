@@ -16,9 +16,9 @@
 #include <mutex>
 
 #include "connections.h"
-#include "grep.h"
 #include "constant.h"
-#include "message.h"
+#include "spread.h"
+#include "detect.h"
 #include "ChronoCpu.h"
 
 using namespace std;
