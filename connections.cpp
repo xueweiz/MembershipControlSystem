@@ -71,12 +71,7 @@ void sendUDP(int port, int sockfd)
     struct sockaddr_in servaddr,cliaddr;
     char sendline[1000] = {'a', 'b', 'c', 'd'};
 
-    sockfd=socket(AF_INET,SOCK_DGRAM,0);
-
-    memset(&servaddr, 0, sizeof(servaddr));
-    //servaddr.sin_family = AF_INET;
-    //servaddr.sin_addr.s_addr=gethostbyname("localhost");
-    //servaddr.sin_port=htons(port);
+    //int sockfd=socket(AF_INET,SOCK_DGRAM,0);
 
     struct hostent *server;
 
@@ -96,7 +91,12 @@ void sendUDP(int port, int sockfd)
     memcpy((char *) &servaddr.sin_addr.s_addr,(char *) server -> h_addr, server -> h_length);
     servaddr.sin_port = htons(port);
 
-    sendto(sockfd,sendline, 4, 0, (struct sockaddr *)&servaddr,sizeof(servaddr));
+    int ret = sendto(sockfd,sendline, 4, 0, (struct sockaddr *)&servaddr,sizeof(servaddr));
+
+    if (ret == -1)
+    {
+        printf("Error in sendUDP: cannot send\n");
+    }
 
     printf("Message sent\n");
 }
