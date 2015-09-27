@@ -2,6 +2,7 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
+#include <string>
 #include <iomanip>
 #include <thread>
 #include <vector>
@@ -55,11 +56,20 @@ void getAdress(std::string filename)
 void listeningThread(int sockfd)
 {
     char buffer[BUFFER_MAX];
+    std::string sender;
 
     while (true)
     {
-        receiveUDP(sockfd, buffer,BUFFER_MAX );
-        break;
+        int byte_count = receiveUDP(sockfd, buffer, BUFFER_MAX, sender);
+
+        printf("Received from: %s\n", sender.c_str());
+
+        for (int i = 0; i < byte_count; ++i)
+        {
+            printf("%c - ", buffer[i]);
+        }
+        printf("\n");
+        //break;
     }
 
 }
@@ -78,7 +88,13 @@ int main (int argc, char* argv[])
 
     int sockfd = bindSocket(SERVER_PORT);
 
-    sendUDP(sockfd, SERVER_PORT);
+    std::string add = "localhost";
+    char sendline[1000] = {'a', 'b', 'c', 'd'};
+
+    sendUDP(sockfd, add, SERVER_PORT, sendline, 4);
+    sendUDP(sockfd, add, SERVER_PORT, sendline, 4);
+    sendUDP(sockfd, add, SERVER_PORT, sendline, 4);
+    sendUDP(sockfd, add, SERVER_PORT, sendline, 4);
 
     /*Server Thread */
     std::thread listening(listeningThread, sockfd);

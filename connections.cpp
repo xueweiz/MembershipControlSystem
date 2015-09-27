@@ -38,7 +38,7 @@ int bindSocket(int port)
     return sockfd;
 }
 
-void receiveUDP(int sockfd, char* buf, uint32_t len)
+int receiveUDP(int sockfd, char* buf, uint32_t len, std::string& sender)
 {
     struct sockaddr addr;
     socklen_t fromlen = sizeof addr;
@@ -53,26 +53,17 @@ void receiveUDP(int sockfd, char* buf, uint32_t len)
 
     struct sockaddr_in *sin = (struct sockaddr_in *) &addr;
 
-    printf("Received from: %s\n", inet_ntoa(sin->sin_addr));
+    sender = inet_ntoa(sin->sin_addr);
 
-    for (int i = 0; i < byte_count; ++i)
-    {
-        printf("%c - ", buf[i]);
-    }
-    printf("\n");
+    return byte_count;
 }
 
-void sendUDP(int sockfd, int port)
+void sendUDP(int sockfd, std::string& add, int port, char* buf, uint32_t len)
 {
     struct sockaddr_in servaddr,cliaddr;
-    char sendline[1000] = {'a', 'b', 'c', 'd'};
-
     struct hostent *server;
 
-    server = gethostbyname("localhost");
-    //char *ip = inet_ntoa( ( (struct sockaddr_in*) &addr)->sin_addr);
-
-    printf("Send to : %s\n", server->h_addr);
+    server = gethostbyname(add.c_str());
 
     if(server == NULL)
     {
@@ -85,13 +76,12 @@ void sendUDP(int sockfd, int port)
     memcpy((char *) &servaddr.sin_addr.s_addr,(char *) server -> h_addr, server -> h_length);
     servaddr.sin_port = htons(port);
 
-    int ret = sendto(sockfd,sendline, 4, 0, (struct sockaddr *)&servaddr,sizeof(servaddr));
+    int ret = sendto(sockfd,buf, len, 0, (struct sockaddr *)&servaddr,sizeof(servaddr));
 
     if (ret == -1)
     {
         printf("Error in sendUDP: cannot send\n");
     }
-
-    printf("Message sent\n");
+    //printf("Message sent\n");
 }
 

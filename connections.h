@@ -3,8 +3,8 @@
 
 int bindSocket(int port);
 
-void receiveUDP(int sockfd, char* buf, uint32_t len);
+int receiveUDP(int sockfd, char* buf, uint32_t len, std::string& sender);
 
-void sendUDP(int sockfd, int port);
+void sendUDP(int sockfd, std::string& add, int port, char* buf, uint32_t len);
 
 #endif
