@@ -52,6 +52,18 @@ void getAdress(std::string filename)
     }
 }
 
+void listeningThread(int sockfd)
+{
+    char buffer[BUFFER_MAX];
+
+    while (true)
+    {
+        receiveUDP(sockfd, buffer,BUFFER_MAX );
+        break;
+    }
+
+}
+
 
 int main (int argc, char* argv[])
 {
@@ -62,18 +74,18 @@ int main (int argc, char* argv[])
 
     std::cout << std::endl << "CS425 - MP2: Membership Protocol." ;
     std::cout << std::endl << std::endl;
+    getAdress("Address.add");
 
     int sockfd = bindSocket(SERVER_PORT);
 
     sendUDP(sockfd, SERVER_PORT);
-    receiveUDP(sockfd);
 
-    /*Server Thread
-    std::thread listeningServer(listeningThread, SERVER_PORT);
+    /*Server Thread */
+    std::thread listening(listeningThread, sockfd);
     usleep(700);
     
-    listeningServer.join();
-    */
+    listening.join();
+   // */
     
     return 0;
 }

@@ -3,7 +3,7 @@
 
 int bindSocket(int port);
 
-void receiveUDP(int sockfd);
+void receiveUDP(int sockfd, char* buf, uint32_t len);
 
 void sendUDP(int sockfd, int port);
 

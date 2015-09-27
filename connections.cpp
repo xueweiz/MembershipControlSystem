@@ -38,15 +38,18 @@ int bindSocket(int port)
     return sockfd;
 }
 
-void receiveUDP(int sockfd)
+void receiveUDP(int sockfd, char* buf, uint32_t len)
 {
-    int byte_count;
-    socklen_t fromlen;
     struct sockaddr addr;
-    char buf[5];
+    socklen_t fromlen = sizeof addr;
 
-    fromlen = sizeof addr;
-    byte_count = recvfrom(sockfd, buf, sizeof buf, 0, &addr, &fromlen);
+    int byte_count = recvfrom(sockfd, buf, len, 0, &addr, &fromlen);
+
+    if (byte_count == -1)
+    {
+        printf("ERROR RECEIVING!!!\n");
+        exit(-1);
+    }
 
     struct sockaddr_in *sin = (struct sockaddr_in *) &addr;
 

@@ -21,7 +21,7 @@ struct Message {
 	char TTL;
 };
 
-#define BUFFER_MAX (1024*1024*8)
+#define BUFFER_MAX (521)
 #define NODES_NUMBER (7)
 
 //  in ms
