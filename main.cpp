@@ -81,8 +81,17 @@ void listeningThread()
 
         if (byte_count != sizeof(msg))
         {
-            printf("Error in size receiving!!!\n");
+            printf("Error in size receiving: Message dropped\n");
+            break;
         }
+        // Get the ip address of the 
+        
+        std::stringstream ip_ss;
+        ip_ss << (unsigned int)msg.carrierAdd[0] << ".";
+        ip_ss << (unsigned int)msg.carrierAdd[1] << ".";
+        ip_ss << (unsigned int)msg.carrierAdd[2] << ".";
+        ip_ss << (unsigned int)msg.carrierAdd[3];
+        std::string ip_carrier = ip_ss.str();
 
         if (msg.type == MSG_FAIL || msg.type == MSG_LEAVE)
         {
@@ -93,28 +102,42 @@ void listeningThread()
                 {
                     int dest = rand() % NODES_NUMBER + 0;
                     std::cout << address.at(dest) << std::endl;
-                    sendUDP(sockfd, address.at(dest), port, (char*)&msg, sizeof(msg));
+                    sendUDP(sockfd, nodes.at(dest).ip_str , port, (char*)&msg, sizeof(msg));
                 }
             }
-
-            // Get the ip address
-            std::stringstream ip;
-            ip << (unsigned int)msg.carrierAdd[0] << ".";
-            ip << (unsigned int)msg.carrierAdd[1] << ".";
-            ip << (unsigned int)msg.carrierAdd[2] << ".";
-            ip << (unsigned int)msg.carrierAdd[3];
-            std::cout << "Failed: " << ip.str () << std::endl;
+            
+            std::cout << "Failed: " << ip_carrier << std::endl;
 
             for (int i = 0; i < nodes.size(); ++i)
             {
-                if ( ip.str().compare(nodes.at(i).ip_str) == 0 ) 
+                if ( ip_carrier.compare(nodes.at(i).ip_str) == 0 ) 
                 {
-                    nodes.at(i).active = false;
+                    //We should also check timestamp
+                    //nodes.at(i).active = false; // Remove the node from the list
+                    nodes.erase(nodes.begin()+1);
+                    printf("Node deleted: %s\n", ip_carrier.c_str());
+                    return;
                 }
             }
         }
+        else if (msg.type == MSG_JOIN)
+        {
+            struct Node newnode;
+            newnode.ip_str = sender;
+            newnode.active = true;
+            nodes.push_back(newnode);
+            std::cout << "New Node: " << sender << std::endl;
 
-        printf("Message received: %d\n", msg.type);
+            //for (int i = 0; i < nodes.size() - 1 ; ++i) //Send to all but the last added
+            {
+                //sendUDP(sockfd, nodes.at(dest).ip_str , port, (char*)&msg, sizeof(msg));
+            }
+        }
+        else
+        {
+            printf("Unknown opcode of received messade: %d\n", msg.type);
+        }
+
         //break;
     }
 }
@@ -126,7 +149,6 @@ void failureDetected(std::string failAdd) // This is the method we call when we 
     for (int i = 0; i < K_FORWARD; ++i)
     {
         int dest = rand() % NODES_NUMBER + 0;
-        //std::cout << nodes.at(dest).ip_str << std::endl;
         spreadFailure(sockfd, nodes.at(dest).ip_str, port, failAdd);    
         spreadFailure(sockfd, "127.0.0.1", port, failAdd);    
     }
@@ -146,6 +168,7 @@ int main (int argc, char* argv[])
     getAdress("Address.add");
 
     failureDetected("121.122.123.124");
+    join(sockfd, "127.0.0.1", port);
 
     /*Server Thread */
     std::thread listening(listeningThread);

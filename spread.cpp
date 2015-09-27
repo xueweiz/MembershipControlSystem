@@ -1,6 +1,7 @@
 /* Spreading part */
 
 #include <sstream>
+#include <time.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -34,24 +35,24 @@ void spreadFailure(int sockfd, std::string dest, int port, std::string carrier)
 
     sendUDP(sockfd, dest, port, (char*)&msg, sizeof(msg));
 }
-/*
-void spreadLeave(int sockfd, int port, std::string add)
+
+void spreadLeave(int sockfd, std::string dest, int port, std::string carrier)
 {
     struct Message msg;
     msg.type = MSG_LEAVE;
     msg.TTL = 3;
 
-    add.replace(add.find("."),1," ");
-    add.replace(add.find("."),1," ");
-    add.replace(add.find("."),1," ");
-    
-    std::stringstream ssip(add);
-    int a;
-    ssip >> a; msg.carrierAdd[3] = a;
-    ssip >> a; msg.carrierAdd[2] = a;
-    ssip >> a; msg.carrierAdd[1] = a;
-    ssip >> a; msg.carrierAdd[0] = a;
+    ipString2Char4(carrier, msg.carrierAdd);
 
-    sendUDP(sockfd, add, port, (char*)&msg, sizeof(msg));
+    sendUDP(sockfd, dest, port, (char*)&msg, sizeof(msg));
 }
-*/
+
+void join(int sockfd, std::string dest, int port)
+{
+	struct Message msg;
+    msg.type = MSG_JOIN;
+    msg.timeStamp = time(NULL);
+
+    sendUDP(sockfd, dest, port, (char*)&msg, sizeof(msg));
+}
+

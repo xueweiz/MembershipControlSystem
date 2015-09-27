@@ -6,7 +6,8 @@
 #include <iostream>
 #include <string>
 
-void spreadFailure(int sockfd, std::string add, int port, std::string carrier);
-//void spreadLeave(int sockfd, int port, std::string add);
+void spreadFailure(int sockfd, std::string dest, int port, std::string carrier);
+void spreadLeave  (int sockfd, std::string dest, int port, std::string carrier);
+void join(int sockfd, std::string dest, int port);
 
 #endif
