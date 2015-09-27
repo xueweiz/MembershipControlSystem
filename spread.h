@@ -3,8 +3,10 @@
 #ifndef SPREAD_H
 #define SPREAD_H
 
+#include <iostream>
+#include <string>
 
-void spreadFailure(int sockfd, int port, int machineId);
-void spreadLeave(int sockfd, int port, int machineId);
+void spreadFailure(int sockfd, std::string add, int port, std::string carrier);
+//void spreadLeave(int sockfd, int port, std::string add);
 
 #endif

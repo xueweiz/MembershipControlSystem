@@ -29,6 +29,7 @@ std::mutex printLogLock;
 std::vector<std::string> address;
 std::stringstream toFile;
 std::vector<Node> nodes;
+int port, sockfd;
 
 void printLog(char * result, int threadId)
 {
@@ -53,32 +54,19 @@ void getAdress(std::string filename)
         char ip[20];
         memcpy(&addr, server->h_addr_list[0], sizeof(struct in_addr)); 
         strcpy(ip,inet_ntoa(addr));
+        
+        std::string ip_str (ip);
+
         struct Node newnode;
         newnode.name = str;
-        std::string ip_str (ip);
         newnode.ip_str = ip_str;
 
-        ip_str.replace(ip_str.find("."),1," ");
-        ip_str.replace(ip_str.find("."),1," ");
-        ip_str.replace(ip_str.find("."),1," ");
-        std::stringstream ssip(ip_str);
-
-        int a;
-        ssip >> a; newnode.ip[0] = a;
-        ssip >> a; newnode.ip[1] = a;
-        ssip >> a; newnode.ip[2] = a;
-        ssip >> a; newnode.ip[3] = a;
-
         nodes.push_back(newnode);
-        std::cout << "Node " << i << ": " << str << " : ";
-        std::cout << (int)newnode.ip[0] << ".";
-        std::cout << (int)newnode.ip[1] << ".";
-        std::cout << (int)newnode.ip[2] << ".";
-        std::cout << (int)newnode.ip[3] << std::endl;
+        std::cout << "Node " << i << ": " << str << " : " << ip_str << std::endl;
     }
 }
 
-void listeningThread(int sockfd, int port)
+void listeningThread()
 {
     //char buffer[BUFFER_MAX];
     struct Message msg;
@@ -111,10 +99,11 @@ void listeningThread(int sockfd, int port)
 
             // Get the ip address
             std::stringstream ip;
-            ip << (int)msg.carrierAdd[0] << ".";
-            ip << (int)msg.carrierAdd[1] << ".";
-            ip << (int)msg.carrierAdd[2] << ".";
-            ip << (int)msg.carrierAdd[3];
+            ip << (unsigned int)msg.carrierAdd[0] << ".";
+            ip << (unsigned int)msg.carrierAdd[1] << ".";
+            ip << (unsigned int)msg.carrierAdd[2] << ".";
+            ip << (unsigned int)msg.carrierAdd[3];
+            std::cout << "Failed: " << ip.str () << std::endl;
 
             for (int i = 0; i < nodes.size(); ++i)
             {
@@ -123,7 +112,6 @@ void listeningThread(int sockfd, int port)
                     nodes.at(i).active = false;
                 }
             }
-
         }
 
         printf("Message received: %d\n", msg.type);
@@ -131,24 +119,36 @@ void listeningThread(int sockfd, int port)
     }
 }
 
+void failureDetected(std::string failAdd) // This is the method we call when we detect a failure
+{
+    srand (time(NULL));
+
+    for (int i = 0; i < K_FORWARD; ++i)
+    {
+        int dest = rand() % NODES_NUMBER + 0;
+        //std::cout << nodes.at(dest).ip_str << std::endl;
+        spreadFailure(sockfd, nodes.at(dest).ip_str, port, failAdd);    
+        spreadFailure(sockfd, "127.0.0.1", port, failAdd);    
+    }
+}
 
 int main (int argc, char* argv[])
 {
     char a;
     bool flag;
 
-    int port = atoi(argv[1]);
-
     std::cout << std::endl << "CS425 - MP2: Membership Protocol." ;
     std::cout << std::endl << std::endl;
+
+    port   = atoi(argv[1]);
+    sockfd = bindSocket( port);
+
     getAdress("Address.add");
 
-    int sockfd = bindSocket( port);
-
-    spreadFailure(sockfd, port,  0);
+    failureDetected("121.122.123.124");
 
     /*Server Thread */
-    std::thread listening(listeningThread, sockfd, port);
+    std::thread listening(listeningThread);
     usleep(700);
     
     listening.join();
