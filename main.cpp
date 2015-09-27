@@ -53,20 +53,22 @@ void getAdress(std::string filename)
 
 void listeningThread(int sockfd)
 {
-    char buffer[BUFFER_MAX];
+    //char buffer[BUFFER_MAX];
+    struct Message msg;
     std::string sender;
 
     while (true)
     {
-        int byte_count = receiveUDP(sockfd, buffer, BUFFER_MAX, sender);
+        int byte_count = receiveUDP(sockfd, (char*)&msg, sizeof(msg), sender);
 
         printf("Received from: %s\n", sender.c_str());
 
-        for (int i = 0; i < byte_count; ++i)
+        if (byte_count != sizeof(msg))
         {
-            printf("%c - ", buffer[i]);
+            printf("Error in size receiving!!!\n");
         }
-        printf("\n");
+
+        printf("Message received: %d\n", msg.type);
         //break;
     }
 
