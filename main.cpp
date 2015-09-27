@@ -26,9 +26,9 @@ using namespace std;
 
 std::mutex printLogLock;
 
-std::vector<std::stringstream> logs(NODES_NUMBER);
 std::vector<std::string> address;
 std::stringstream toFile;
+std::vector<Node> nodes;
 
 void printLog(char * result, int threadId)
 {
@@ -47,7 +47,34 @@ void getAdress(std::string filename)
         std::string str;
         getline(addFile, str);
         address.push_back(str);
-        std::cout << "Address " << i << ": " << str << std::endl;
+        struct hostent *server = gethostbyname(str.c_str());
+
+        struct in_addr addr;
+        char ip[20];
+        memcpy(&addr, server->h_addr_list[0], sizeof(struct in_addr)); 
+        strcpy(ip,inet_ntoa(addr));
+        struct Node newnode;
+        newnode.name = str;
+        std::string ip_str (ip);
+        newnode.ip_str = ip_str;
+
+        ip_str.replace(ip_str.find("."),1," ");
+        ip_str.replace(ip_str.find("."),1," ");
+        ip_str.replace(ip_str.find("."),1," ");
+        std::stringstream ssip(ip_str);
+
+        int a;
+        ssip >> a; newnode.ip[0] = a;
+        ssip >> a; newnode.ip[1] = a;
+        ssip >> a; newnode.ip[2] = a;
+        ssip >> a; newnode.ip[3] = a;
+
+        nodes.push_back(newnode);
+        std::cout << "Node " << i << ": " << str << " : ";
+        std::cout << (int)newnode.ip[0] << ".";
+        std::cout << (int)newnode.ip[1] << ".";
+        std::cout << (int)newnode.ip[2] << ".";
+        std::cout << (int)newnode.ip[3] << std::endl;
     }
 }
 
@@ -79,6 +106,21 @@ void listeningThread(int sockfd, int port)
                     int dest = rand() % NODES_NUMBER + 0;
                     std::cout << address.at(dest) << std::endl;
                     sendUDP(sockfd, address.at(dest), port, (char*)&msg, sizeof(msg));
+                }
+            }
+
+            // Get the ip address
+            std::stringstream ip;
+            ip << (int)msg.carrierAdd[0] << ".";
+            ip << (int)msg.carrierAdd[1] << ".";
+            ip << (int)msg.carrierAdd[2] << ".";
+            ip << (int)msg.carrierAdd[3];
+
+            for (int i = 0; i < nodes.size(); ++i)
+            {
+                if ( ip.str().compare(nodes.at(i).ip_str) == 0 ) 
+                {
+                    nodes.at(i).active = false;
                 }
             }
 

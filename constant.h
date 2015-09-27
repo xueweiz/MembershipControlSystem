@@ -16,7 +16,7 @@ struct Message {
 	messageType type;
 	uint8_t roundId;
 	//int senderAdd[4]; //We dont need to send this since we can see the sender
-	int carrierAdd[4];
+	char carrierAdd[4];
 	int timeStamp;
 	char TTL;
 };
@@ -24,7 +24,8 @@ struct Message {
 struct Node {
 
 	std::string name; // name address
-	std::string add;  // IP address
+	uint8_t	 ip[4];  // IP address
+	std::string ip_str;	 // IP address in string format for easy compare;
 	int port;		  // not necessary, but just in case we need it
 	int timeStamp;
 	bool active;
