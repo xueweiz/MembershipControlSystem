@@ -63,7 +63,8 @@ int main (int argc, char* argv[])
     std::cout << std::endl << "CS425 - MP2: Distributed Logging init." << std::endl;
 
     int sockfd = bindSocket(SERVER_PORT);
-    sendUDP(SERVER_PORT);
+
+    sendUDP(SERVER_PORT, sockfd);
     receiveUDP( sockfd );
 
     /*Server Thread

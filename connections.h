@@ -5,6 +5,6 @@ int bindSocket(int port);
 
 void receiveUDP(int sockfd);
 
-void sendUDP(int port);
+void sendUDP(int port, int sockfd);
 
 #endif

@@ -4,6 +4,8 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
+#include <arpa/inet.h>
+
 
 #include "connections.h"
 
@@ -41,9 +43,17 @@ void receiveUDP(int sockfd)
     fromlen = sizeof addr;
     byte_count = recvfrom(sockfd, buf, sizeof buf, 0, &addr, &fromlen);
 
+    struct sockaddr_in *sin = (struct sockaddr_in *) &addr;
+
+    printf("Received from: %s\n", inet_ntoa(sin->sin_addr));
+
+    //char *ip = inet_ntoa( ( (struct sockaddr_in) addr).sin_addr);
+
+    //printf("Received from: %s\n", ip);
+
     for (int i = 0; i < 14; ++i)
     {
-        printf("%d \n", (int)addr.sa_data[i]);
+        //printf("%d \n", (int)addr.sa_data[i]);
     }
 
     printf("\nEnd addres\n");
@@ -55,16 +65,15 @@ void receiveUDP(int sockfd)
     printf("\n");
 }
 
-void sendUDP(int port)
+void sendUDP(int port, int sockfd)
 {
-    int sockfd;
+    //int sockfd;
     struct sockaddr_in servaddr,cliaddr;
     char sendline[1000] = {'a', 'b', 'c', 'd'};
-    char recvline[1000];
 
     sockfd=socket(AF_INET,SOCK_DGRAM,0);
 
-    bzero(&servaddr,sizeof(servaddr));
+    memset(&servaddr, 0, sizeof(servaddr));
     //servaddr.sin_family = AF_INET;
     //servaddr.sin_addr.s_addr=gethostbyname("localhost");
     //servaddr.sin_port=htons(port);
@@ -72,6 +81,9 @@ void sendUDP(int port)
     struct hostent *server;
 
     server = gethostbyname("localhost");
+    //char *ip = inet_ntoa( ( (struct sockaddr_in*) &addr)->sin_addr);
+
+    printf("Send to : %s\n", server->h_addr);
 
     if(server == NULL)
     {
