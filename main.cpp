@@ -26,8 +26,6 @@ using namespace std;
 
 std::mutex printLogLock;
 
-int SERVER_PORT;
-
 std::vector<std::stringstream> logs(NODES_NUMBER);
 std::vector<std::string> address;
 std::stringstream toFile;
@@ -80,28 +78,22 @@ int main (int argc, char* argv[])
     char a;
     bool flag;
 
-    SERVER_PORT = atoi(argv[1]);
+    int port = atoi(argv[1]);
 
     std::cout << std::endl << "CS425 - MP2: Membership Protocol." ;
     std::cout << std::endl << std::endl;
     getAdress("Address.add");
 
-    int sockfd = bindSocket(SERVER_PORT);
+    int sockfd = bindSocket( port);
 
-    std::string add = "localhost";
-    char sendline[1000] = {'a', 'b', 'c', 'd'};
-
-    sendUDP(sockfd, add, SERVER_PORT, sendline, 4);
-    sendUDP(sockfd, add, SERVER_PORT, sendline, 4);
-    sendUDP(sockfd, add, SERVER_PORT, sendline, 4);
-    sendUDP(sockfd, add, SERVER_PORT, sendline, 4);
+    spreadFailure(sockfd, port,  0);
 
     /*Server Thread */
     std::thread listening(listeningThread, sockfd);
     usleep(700);
     
     listening.join();
-   // */
+    // */
     
     return 0;
 }

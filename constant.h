@@ -15,7 +15,7 @@ struct Message {
 
 	messageType type;
 	uint8_t roundId;
-	int senderAdd[4];
+	//int senderAdd[4]; //We dont need to send this since we can see the sender
 	int carrierAdd[4];
 	int timeStamp;
 	char TTL;

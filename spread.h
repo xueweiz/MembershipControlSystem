@@ -3,9 +3,7 @@
 #ifndef SPREAD_H
 #define SPREAD_H
 
-int spreadFailure(int machineId)
-{
-	
-}
+
+int spreadFailure(int sockfd, int port, int machineId);
 
 #endif
