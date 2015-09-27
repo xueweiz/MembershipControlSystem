@@ -11,13 +11,27 @@
 #include "connections.h"
 #include "constant.h"
 
-int spreadFailure(int sockfd, int port, int machineId)
+void spreadFailure(int sockfd, int port, int machineId)
 {
 	std::string add = "localhost";
-    char sendline[1000] = {'a', 'b', 'c', 'd'};
 
     struct Message msg;
     msg.type = MSG_FAIL;
+    msg.TTL = 3;
+
+    sendUDP(sockfd, add, port, (char*)&msg, sizeof(msg));
+    sendUDP(sockfd, add, port, (char*)&msg, sizeof(msg));
+    sendUDP(sockfd, add, port, (char*)&msg, sizeof(msg));
+    sendUDP(sockfd, add, port, (char*)&msg, sizeof(msg));
+}
+
+void spreadLeave(int sockfd, int port, int machineId)
+{
+	std::string add = "localhost";
+
+    struct Message msg;
+    msg.type = MSG_LEAVE;
+    msg.TTL = 3;
 
     sendUDP(sockfd, add, port, (char*)&msg, sizeof(msg));
     sendUDP(sockfd, add, port, (char*)&msg, sizeof(msg));

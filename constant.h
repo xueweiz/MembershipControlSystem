@@ -21,8 +21,18 @@ struct Message {
 	char TTL;
 };
 
+struct Node {
+
+	std::string name; // name address
+	std::string add;  // IP address
+	int port;		  // not necessary, but just in case we need it
+	int timeStamp;
+	bool active;
+};
+
 #define BUFFER_MAX (521)
 #define NODES_NUMBER (7)
+#define K_FORWARD (3)
 
 //  in ms
 #define SLEEP_TIME (50)

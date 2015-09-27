@@ -4,6 +4,7 @@
 #define SPREAD_H
 
 
-int spreadFailure(int sockfd, int port, int machineId);
+void spreadFailure(int sockfd, int port, int machineId);
+void spreadLeave(int sockfd, int port, int machineId);
 
 #endif

@@ -51,11 +51,12 @@ void getAdress(std::string filename)
     }
 }
 
-void listeningThread(int sockfd)
+void listeningThread(int sockfd, int port)
 {
     //char buffer[BUFFER_MAX];
     struct Message msg;
     std::string sender;
+    srand (time(NULL));
 
     while (true)
     {
@@ -68,10 +69,24 @@ void listeningThread(int sockfd)
             printf("Error in size receiving!!!\n");
         }
 
+        if (msg.type == MSG_FAIL || msg.type == MSG_LEAVE)
+        {
+            msg.TTL--; // Keep spreading
+            if (msg.TTL > 0)
+            {
+                for (int i = 0; i < K_FORWARD; ++i)
+                {
+                    int dest = rand() % NODES_NUMBER + 0;
+                    std::cout << address.at(dest) << std::endl;
+                    sendUDP(sockfd, address.at(dest), port, (char*)&msg, sizeof(msg));
+                }
+            }
+
+        }
+
         printf("Message received: %d\n", msg.type);
         //break;
     }
-
 }
 
 
@@ -91,7 +106,7 @@ int main (int argc, char* argv[])
     spreadFailure(sockfd, port,  0);
 
     /*Server Thread */
-    std::thread listening(listeningThread, sockfd);
+    std::thread listening(listeningThread, sockfd, port);
     usleep(700);
     
     listening.join();
