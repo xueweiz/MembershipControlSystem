@@ -60,12 +60,13 @@ int main (int argc, char* argv[])
 
     SERVER_PORT = atoi(argv[1]);
 
-    std::cout << std::endl << "CS425 - MP2: Distributed Logging init." << std::endl;
+    std::cout << std::endl << "CS425 - MP2: Membership Protocol." ;
+    std::cout << std::endl << std::endl;
 
     int sockfd = bindSocket(SERVER_PORT);
 
-    sendUDP(SERVER_PORT, sockfd);
-    receiveUDP( sockfd );
+    sendUDP(sockfd, SERVER_PORT);
+    receiveUDP(sockfd);
 
     /*Server Thread
     std::thread listeningServer(listeningThread, SERVER_PORT);
