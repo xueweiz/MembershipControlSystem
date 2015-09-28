@@ -8,7 +8,8 @@ typedef enum MessageType
     MSG_PIGGY,
     MSG_FAIL,
     MSG_JOIN,
-    MSG_LEAVE
+    MSG_LEAVE,
+    MSG_EMPTY
 } messageType;
 
 struct Message {

@@ -11,6 +11,13 @@
 #include "connections.h"
 #include "constant.h"
 
+#include <vector>
+
+extern std::vector<Node> nodes;
+extern int port;
+extern int sockfd;
+
+
 void ipString2Char4(std::string ip, char* buf) // buf must be size 4
 {
     ip.replace(ip.find("."),1," ");
@@ -52,7 +59,20 @@ void join(int sockfd, std::string dest, int port)
 	struct Message msg;
     msg.type = MSG_JOIN;
     msg.timeStamp = time(NULL);
+    msg.TTL = 4;
 
     sendUDP(sockfd, dest, port, (char*)&msg, sizeof(msg));
 }
 
+
+void failureDetected(std::string failAdd) // This is the method we call when we detect a failure
+{
+    srand (time(NULL));
+
+    for (int i = 0; i < K_FORWARD; ++i)
+    {
+        int dest = rand() % NODES_NUMBER + 0;
+        spreadFailure(sockfd, nodes.at(dest).ip_str, port, failAdd);    
+        spreadFailure(sockfd, "127.0.0.1", port, failAdd);    
+    }
+}

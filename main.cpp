@@ -31,6 +31,11 @@ std::stringstream toFile;
 std::vector<Node> nodes;
 int port, sockfd;
 
+int roundId;
+
+std::vector<Message> msgQueue;
+std::mutex msgQueueLock;
+
 void printLog(char * result, int threadId)
 {
     printf("\n%s\n", result);
@@ -66,6 +71,8 @@ void getAdress(std::string filename)
     }
 }
 
+
+
 void listeningThread()
 {
     //char buffer[BUFFER_MAX];
@@ -75,6 +82,7 @@ void listeningThread()
 
     while (true)
     {
+        std::cout<< endl <<"linsten round begin"<<endl; 
         int byte_count = receiveUDP(sockfd, (char*)&msg, sizeof(msg), sender);
 
         printf("Received from: %s\n", sender.c_str());
@@ -84,8 +92,9 @@ void listeningThread()
             printf("Error in size receiving: Message dropped\n");
             break;
         }
-        // Get the ip address of the 
-        
+
+        std::cout<<"received msg type and TTL: "<<msg.type<<" "<<(int)msg.TTL<<endl;
+        // Get the ip address of the sender
         std::stringstream ip_ss;
         ip_ss << (unsigned int)msg.carrierAdd[0] << ".";
         ip_ss << (unsigned int)msg.carrierAdd[1] << ".";
@@ -101,7 +110,8 @@ void listeningThread()
                 for (int i = 0; i < K_FORWARD; ++i)
                 {
                     int dest = rand() % NODES_NUMBER + 0;
-                    std::cout << address.at(dest) << std::endl;
+                    std::cout<<"forward msg type and TTL: "<<msg.type<<" "<<(int)msg.TTL<<endl;
+                    std::cout <<"forward message to: "<< address.at(dest) << std::endl;    //zxw: later we will use nodes[] instead address[]
                     sendUDP(sockfd, nodes.at(dest).ip_str , port, (char*)&msg, sizeof(msg));
                 }
             }
@@ -128,9 +138,9 @@ void listeningThread()
             nodes.push_back(newnode);
             std::cout << "New Node: " << sender << std::endl;
 
-            //for (int i = 0; i < nodes.size() - 1 ; ++i) //Send to all but the last added
+            for (int i = 0; i < nodes.size() - 1 ; ++i) //Send to all but the last added
             {
-                //sendUDP(sockfd, nodes.at(dest).ip_str , port, (char*)&msg, sizeof(msg));
+                sendUDP(sockfd, nodes.at(i).ip_str , port, (char*)&msg, sizeof(msg));
             }
         }
         else
@@ -142,22 +152,11 @@ void listeningThread()
     }
 }
 
-void failureDetected(std::string failAdd) // This is the method we call when we detect a failure
-{
-    srand (time(NULL));
-
-    for (int i = 0; i < K_FORWARD; ++i)
-    {
-        int dest = rand() % NODES_NUMBER + 0;
-        spreadFailure(sockfd, nodes.at(dest).ip_str, port, failAdd);    
-        spreadFailure(sockfd, "127.0.0.1", port, failAdd);    
-    }
-}
-
 int main (int argc, char* argv[])
 {
     char a;
     bool flag;
+    roundId = 0;
 
     std::cout << std::endl << "CS425 - MP2: Membership Protocol." ;
     std::cout << std::endl << std::endl;
@@ -167,14 +166,24 @@ int main (int argc, char* argv[])
 
     getAdress("Address.add");
 
-    failureDetected("121.122.123.124");
-    join(sockfd, "127.0.0.1", port);
+    //failureDetected("121.122.123.124");
+
+    //join(sockfd, "127.0.0.1", port);
+    /*for (int i = 0; i < K_FORWARD; ++i)
+    {
+        int dest = rand() % NODES_NUMBER + 0;
+        std::cout <<"send join message to: "<< address.at(dest) << std::endl;    //zxw: later we will use nodes[] instead address[]
+        join(sockfd, nodes.at(dest).ip_str, port);
+    }*/
+
 
     /*Server Thread */
     std::thread listening(listeningThread);
+    std::thread sending(sendingThread);
     usleep(700);
     
     listening.join();
+    sending.join();
     // */
     
     return 0;
