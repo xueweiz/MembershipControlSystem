@@ -96,10 +96,10 @@ void listeningThread()
         std::cout<<"received msg type and TTL: "<<msg.type<<" "<<(int)msg.TTL<<endl;
         // Get the ip address of the sender
         std::stringstream ip_ss;
-        ip_ss << (unsigned int)msg.carrierAdd[0] << ".";
-        ip_ss << (unsigned int)msg.carrierAdd[1] << ".";
-        ip_ss << (unsigned int)msg.carrierAdd[2] << ".";
-        ip_ss << (unsigned int)msg.carrierAdd[3];
+        ip_ss << (int)(uint8_t)msg.carrierAdd[0] << ".";
+        ip_ss << (int)(uint8_t)msg.carrierAdd[1] << ".";
+        ip_ss << (int)(uint8_t)msg.carrierAdd[2] << ".";
+        ip_ss << (int)(uint8_t)msg.carrierAdd[3];
         std::string ip_carrier = ip_ss.str();
 
         if (msg.type == MSG_FAIL || msg.type == MSG_LEAVE)
