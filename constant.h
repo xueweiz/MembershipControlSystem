@@ -23,11 +23,18 @@ struct Message {
 };
 
 struct Node {
-
-	std::string name; // name address
+	//std::string name; // name address
 	//uint8_t	 ip[4];  // IP address not neededs
 	std::string ip_str;	 // IP address in string format for easy compare;
 	int port;		  // not necessary, but just in case we need it
+	int timeStamp;
+	bool active;
+};
+
+struct TransferNode{
+	//char name[50];
+	char ip_str[50];
+	int port;
 	int timeStamp;
 	bool active;
 };

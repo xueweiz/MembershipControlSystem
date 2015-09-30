@@ -7,10 +7,18 @@
 #include <netdb.h>
 #include <arpa/inet.h>
 
+//UDP
 int bindSocket(int port);
 
 int receiveUDP(int sockfd, char* buf, uint32_t len, std::string& sender);
 
 void sendUDP(int sockfd, std::string& add, int port, char* buf, uint32_t len);
+
+//TCP
+int open_socket(int port);
+
+int listen_socket(int listenFd);
+
+int connect_to_server(const char* add, int port, int* connectionFd);
 
 #endif

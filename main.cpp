@@ -1,3 +1,7 @@
+#include <netinet/in.h> 
+#include <string.h> 
+#include <arpa/inet.h>
+#include <ifaddrs.h>
 #include <unistd.h>
 #include <iostream>
 #include <fstream>
@@ -28,7 +32,8 @@ std::mutex printLogLock;
 
 std::vector<std::string> address;
 std::stringstream toFile;
-std::vector<Node> nodes;
+std::vector<Node> nodes;    //store introducers
+std::vector<Node> members;  //store members in the group
 int port, sockfd;
 
 int roundId;
@@ -63,7 +68,7 @@ void getAdress(std::string filename)
         std::string ip_str (ip);
 
         struct Node newnode;
-        newnode.name = str;
+        //newnode.name = str;
         newnode.ip_str = ip_str;
 
         nodes.push_back(newnode);
@@ -96,6 +101,7 @@ void listeningThread()
         std::cout<<"received msg type and TTL: "<<msg.type<<" "<<(int)msg.TTL<<endl;
         // Get the ip address of the sender
         std::stringstream ip_ss;
+        cout<<"carrier uint "<<(char)msg.carrierAdd[0]<<endl;
         ip_ss << (unsigned int)msg.carrierAdd[0] << ".";
         ip_ss << (unsigned int)msg.carrierAdd[1] << ".";
         ip_ss << (unsigned int)msg.carrierAdd[2] << ".";
@@ -152,10 +158,73 @@ void listeningThread()
     }
 }
 
+void forJoinThread(){
+    int listenFd = open_socket(port + 1);   //use the port next to UDP as TCP port
+    while(true)
+    {
+        int ret;
+        int connFd = listen_socket(listenFd);
+
+        int * buffer = new int;
+
+        msgQueueLock.lock();
+        
+        *buffer = members.size();
+        
+        TransferNode * buffer2 = new TransferNode[*buffer];
+        for(int i=0; i < *buffer; i++){
+            //strcpy(buffer2[i].name, members[i].name.c_str());
+            strcpy(buffer2[i].ip_str, members[i].ip_str.c_str());
+            buffer2[i].port = members[i].port;
+            buffer2[i].timeStamp = members[i].timeStamp;
+            buffer2[i].active = members[i].active;
+        }
+
+        msgQueueLock.unlock();
+
+        ret = write(connFd, (char*)buffer, sizeof(int));
+
+        ret = write(connFd, (char*)buffer2, sizeof(TransferNode)*(*buffer));
+
+        delete buffer;
+        delete [] buffer2;
+
+        close(connFd);
+    }
+    return;
+}
+
+char * getOwnIPAddr(){
+    struct ifaddrs * ifAddrStruct=NULL;
+    struct ifaddrs * ifa=NULL;
+    void * tmpAddrPtr=NULL;
+
+    getifaddrs(&ifAddrStruct);
+    char *result;
+
+    int i=0;
+    for (ifa = ifAddrStruct; ifa != NULL; ifa = ifa->ifa_next) {
+        if (!ifa->ifa_addr) {
+            continue;
+        }
+        i++;
+        if(i==4){
+            tmpAddrPtr=&((struct sockaddr_in *)ifa->ifa_addr)->sin_addr;
+            char addressBuffer[INET_ADDRSTRLEN];
+            inet_ntop(AF_INET, tmpAddrPtr, addressBuffer, INET_ADDRSTRLEN);
+            printf("%s IP Address %s\n", ifa->ifa_name, addressBuffer);  
+            result = new char[strlen(addressBuffer)+1];
+            strcpy(result, addressBuffer);
+        }
+    }
+    
+    if (ifAddrStruct!=NULL) freeifaddrs(ifAddrStruct);
+    return result;
+}
+
 int main (int argc, char* argv[])
 {
     char a;
-    bool flag;
     roundId = 0;
 
     std::cout << std::endl << "CS425 - MP2: Membership Protocol." ;
@@ -166,7 +235,7 @@ int main (int argc, char* argv[])
 
     getAdress("Address.add");
 
-    //failureDetected("121.122.123.124");
+    getOwnIPAddr();
 
     //join(sockfd, "127.0.0.1", port);
     /*for (int i = 0; i < K_FORWARD; ++i)
@@ -176,15 +245,17 @@ int main (int argc, char* argv[])
         join(sockfd, nodes.at(dest).ip_str, port);
     }*/
 
+    std::thread forJoin(forJoinThread);
 
-    /*Server Thread */
+    //failureDetected("121.122.123.124");
+
     std::thread listening(listeningThread);
     std::thread sending(sendingThread);
     usleep(700);
     
     listening.join();
     sending.join();
-    // */
+    forJoin.join();    
     
     return 0;
 }

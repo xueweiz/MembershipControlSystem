@@ -149,6 +149,7 @@ void sendingThread()
         	
         	if(!getAck){
         		cout<<"deleting node "<<nodes.at(dest).ip_str<<endl;
+        		//cout<<nodes.at(dest).ip_str<<endl;
         		failureDetected(nodes.at(dest).ip_str);
         		//nodes.erase(nodes.begin()+dest);
         	}
