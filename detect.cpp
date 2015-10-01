@@ -2,17 +2,119 @@
 
 #include "detect.h"
 
-extern std::mutex printLogLock;
 
-extern std::vector<std::string> address;
-extern std::stringstream toFile;
-extern std::vector<Node> nodes;
+extern vector<string> address;
+extern stringstream toFile;
+extern vector<Node> nodes;
 extern int port;
 extern int sockfd;
 
 extern int roundId;
-extern std::vector<Message> msgQueue;
-extern std::mutex msgQueueLock;
+extern vector<Message> msgQueue;
+extern mutex msgQueueLock;
+
+extern mutex membersLock;
+extern vector<Node> members;  //store members in the group
+
+void printMember(){
+    membersLock.lock();
+    cout<<endl<<"Print members: "<<endl;
+    for(int i=0; i < members.size(); i++){
+        cout<<"Member["<<i<<"]: "<<members[i].ip_str<<" "<<members[i].timeStamp<<" "<<members[i].active<<endl;
+    }
+    cout<<endl;
+    membersLock.unlock();    
+}
+
+//if already exist, return 1. else return 0
+int addMember(char * carrierAdd, int timeStamp){
+    Node newMember;
+    newMember.ip_str = getSenderIP(carrierAdd);
+    newMember.timeStamp = timeStamp;
+    newMember.active = 1;
+    
+    membersLock.lock();
+
+    bool exist = false;
+    int position = 0;
+    for(int i=0; i<members.size(); i++){
+        if( members[i].ip_str.compare( newMember.ip_str )==0 ){
+            exist = true;
+            position = i;
+        }
+    }
+    
+    if(exist){
+        members[position].timeStamp = newMember.timeStamp;
+    }
+    else{
+        members.push_back(newMember);
+    }
+
+    membersLock.unlock();
+
+    return exist;
+}
+
+//check IP
+int checkMember(char * carrierAdd){
+    bool exist = false;
+    string ip_str = getSenderIP(carrierAdd);
+    
+    membersLock.lock();
+    
+    for(int i=0; i<members.size(); i++){
+        if( members[i].ip_str.compare( ip_str )==0 ){
+            exist = true;
+        }
+    }
+
+    membersLock.unlock();
+
+    return exist;
+}
+
+//check IP + timeStamp
+int checkMember(char * carrierAdd, int timeStamp){
+    bool exist = false;
+    string ip_str = getSenderIP(carrierAdd);
+    
+    membersLock.lock();
+    
+    for(int i=0; i<members.size(); i++){
+        if( members[i].ip_str.compare( ip_str )==0 && members[i].timeStamp == timeStamp){
+            exist = true;
+        }
+    }
+
+    membersLock.unlock();
+
+    return exist;   
+}
+
+//if already failed, return 1. else return 0
+int failMember(char * carrierAdd, int timeStamp){
+    string ip_str = getSenderIP(carrierAdd);
+
+    membersLock.lock();
+
+    bool exist = false;
+    int position = 0;
+    for(int i=0; i<members.size(); i++){
+        if( members[i].ip_str.compare( ip_str )==0 && members[i].timeStamp == timeStamp ){
+            exist = true;
+            position = i;
+        }
+    }
+    
+    if(exist){
+        members.erase( members.begin()+position );
+    }
+    
+    membersLock.unlock();
+
+    return !exist;
+}
 
 bool msgQueueEmpty(){
 	msgQueueLock.lock();
@@ -53,7 +155,7 @@ int queueSize(){
 	return size;
 }
 
-void sendPing(int sockfd, std::string dest, int port, std::string carrier){
+void sendPing(int sockfd, string dest, int port, string carrier){
 	struct Message msg;
 	msg.roundId = roundId;
     msg.type = MSG_PING;
@@ -65,15 +167,15 @@ void sendPing(int sockfd, std::string dest, int port, std::string carrier){
     sendUDP(sockfd, dest, port, (char*)&msg, sizeof(msg));
 }
 
-void sendingThread()
+void detectThread()
 {
     struct Message msg;
-    std::string sender;
+    string sender;
     srand (time(NULL));
 
     while (true)
     {
-        std::cout<< endl <<"sending round begin, round id: "<<roundId<<endl; 
+        cout<< endl <<"sending round begin, round id: "<<roundId<<endl; 
         
         if(nodes.size() < 2){
             cout<<"I have no friend to send ping to. Skip round: "<<roundId<<endl;
@@ -106,7 +208,7 @@ void sendingThread()
         			}			
         			else{		//should not have this message
         				cout<<"sendingThread: don't know how to do with this msg: "<<endl;
-        				std::cout<<"received msg type round TTL: "<<msg.type<<" "<<msg.roundId<<" "<<(int)msg.TTL<<endl;
+        				cout<<"received msg type round TTL: "<<msg.type<<" "<<msg.roundId<<" "<<(int)msg.TTL<<endl;
         			}
         		}
         	}
@@ -141,7 +243,7 @@ void sendingThread()
 	        			}			
 	        			else{		//should not have this message
 	        				cout<<"sendingThread: don't know how to do with this msg: "<<endl;
-	        				std::cout<<"received msg type round TTL: "<<msg.type<<" "<<msg.roundId<<" "<<(int)msg.TTL<<endl;
+	        				cout<<"received msg type round TTL: "<<msg.type<<" "<<msg.roundId<<" "<<(int)msg.TTL<<endl;
 	        			}
 	        		}
 	        	}

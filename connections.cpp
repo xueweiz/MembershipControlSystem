@@ -1,4 +1,5 @@
 #include <iostream>
+#include <string> 
 #include <string.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -208,3 +209,42 @@ int connect_to_server(const char* add, int port, int* connectionFd)
     }
 }
 
+//caller need to free the char*
+string getOwnIPAddr(){
+    struct ifaddrs * ifAddrStruct=NULL;
+    struct ifaddrs * ifa=NULL;
+    void * tmpAddrPtr=NULL;
+
+    getifaddrs(&ifAddrStruct);
+    string result;
+
+    int i=0;
+    for (ifa = ifAddrStruct; ifa != NULL; ifa = ifa->ifa_next) {
+        if (!ifa->ifa_addr) {
+            continue;
+        }
+        i++;
+        if(i==4){
+            tmpAddrPtr=&((struct sockaddr_in *)ifa->ifa_addr)->sin_addr;
+            char addressBuffer[INET_ADDRSTRLEN];
+            inet_ntop(AF_INET, tmpAddrPtr, addressBuffer, INET_ADDRSTRLEN);
+            result = addressBuffer;
+        }
+    }
+    
+    if (ifAddrStruct!=NULL) freeifaddrs(ifAddrStruct);
+    return result;
+}
+
+string getSenderIP(char* carrierAdd){
+    std::stringstream ip_ss;
+
+    ip_ss << (int)(uint8_t)carrierAdd[0] << ".";
+    ip_ss << (int)(uint8_t)carrierAdd[1] << ".";
+    ip_ss << (int)(uint8_t)carrierAdd[2] << ".";
+    ip_ss << (int)(uint8_t)carrierAdd[3];
+
+    std::string ip_carrier = ip_ss.str();
+
+    return ip_carrier;
+}

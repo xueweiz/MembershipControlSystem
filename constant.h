@@ -7,37 +7,25 @@ typedef enum MessageType
     MSG_PING,
     MSG_PIGGY,
     MSG_FAIL,
-    MSG_JOIN,
+    MSG_JOIN,		//only for TCP connection
     MSG_LEAVE,
     MSG_EMPTY
 } messageType;
 
 struct Message {
-
 	messageType type;
 	uint8_t roundId;
-	//int senderAdd[4]; //We dont need to send this since we can see the sender
 	char carrierAdd[4];
 	int timeStamp;
 	char TTL;
 };
 
 struct Node {
-	//std::string name; // name address
-	//uint8_t	 ip[4];  // IP address not neededs
-	std::string ip_str;	 // IP address in string format for easy compare;
-	int port;		  // not necessary, but just in case we need it
+	string ip_str;	 // IP address in string format for easy compare;
 	int timeStamp;
-	bool active;
+	int active;		//if active==1, it is alive. If out of reach, set to -3. Each round, increase 1. When reach 0, delete.
 };
 
-struct TransferNode{
-	//char name[50];
-	char ip_str[50];
-	int port;
-	int timeStamp;
-	bool active;
-};
 
 #define BUFFER_MAX (521)
 #define NODES_NUMBER (7)

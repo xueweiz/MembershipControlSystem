@@ -35,9 +35,20 @@ void sendPing(int sockfd, std::string dest, int port, int roundId, std::string c
 
 void sendAck(int sockfd, std::string dest, int port, int roundId, std::string carrier);
 
-void sendingThread();
+void detectThread();
 
+void printMember();
 
+//if already exist, return 1. else return 0
+int addMember(char * carrierAdd, int timeStamp);
 
+//check IP
+int checkMember(char * carrierAdd);
+
+//check IP + timeStamp
+int checkMember(char * carrierAdd, int timeStamp);
+
+//if already failed, return 1. else return 0
+int failMember(char * carrierAdd, int timeStamp);
 
 #endif

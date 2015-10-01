@@ -28,35 +28,35 @@
 
 using namespace std;
 
-std::mutex printLogLock;
+vector<Node> nodes;    //store initial nodes
+vector<std::string> address;
 
-std::vector<std::string> address;
-std::stringstream toFile;
-std::vector<Node> nodes;    //store introducers
-std::vector<Node> members;  //store members in the group
-int port, sockfd;
+mutex membersLock;
+vector<Node> members;  //store members in the group
 
-int roundId;
+int port, sockfd;   //for UDP connection
 
-std::vector<Message> msgQueue;
-std::mutex msgQueueLock;
+int roundId;    //used by detect thread.
 
-void printLog(char * result, int threadId)
-{
-    printf("\n%s\n", result);
-    toFile << result;
-    return;
-}
+bool isIntroducer;
+
+int myTimeStamp;
+string my_ip_str;
+char myAddr[4];
+
+vector<Message> msgQueue;
+mutex msgQueueLock;
 
 /* Get address from other nodes: */
 void getAdress(std::string filename)
 {
     ifstream addFile(filename);
 
-    for (int i = 0; i < NODES_NUMBER; ++i)
+    std::string str;
+    int i=0; 
+    
+    while(getline(addFile, str)!=0)
     {
-        std::string str;
-        getline(addFile, str);
         address.push_back(str);
         struct hostent *server = gethostbyname(str.c_str());
 
@@ -73,6 +73,7 @@ void getAdress(std::string filename)
 
         nodes.push_back(newnode);
         std::cout << "Node " << i << ": " << str << " : " << ip_str << std::endl;
+        i++;
     }
 }
 
@@ -87,7 +88,7 @@ void listeningThread()
 
     while (true)
     {
-        std::cout<< endl <<"linsten round begin"<<endl; 
+        std::cout<< endl <<"linsten round start"<<endl; 
         int byte_count = receiveUDP(sockfd, (char*)&msg, sizeof(msg), sender);
 
         printf("Received from: %s\n", sender.c_str());
@@ -95,19 +96,13 @@ void listeningThread()
         if (byte_count != sizeof(msg))
         {
             printf("Error in size receiving: Message dropped\n");
-            break;
+            continue;
         }
 
         std::cout<<"received msg type and TTL: "<<msg.type<<" "<<(int)msg.TTL<<endl;
+        
         // Get the ip address of the sender
-        std::stringstream ip_ss;
-
-        ip_ss << (int)(uint8_t)msg.carrierAdd[0] << ".";
-        ip_ss << (int)(uint8_t)msg.carrierAdd[1] << ".";
-        ip_ss << (int)(uint8_t)msg.carrierAdd[2] << ".";
-        ip_ss << (int)(uint8_t)msg.carrierAdd[3];
-
-        std::string ip_carrier = ip_ss.str();
+        std::string ip_carrier = getSenderIP(msg.carrierAdd);
 
         if (msg.type == MSG_FAIL || msg.type == MSG_LEAVE)
         {
@@ -130,24 +125,11 @@ void listeningThread()
                 if ( ip_carrier.compare(nodes.at(i).ip_str) == 0 ) 
                 {
                     //We should also check timestamp
-                    //nodes.at(i).active = false; // Remove the node from the list
+                    //nodes.at(i).active = 0; // Remove the node from the list
                     nodes.erase(nodes.begin()+1);
                     printf("Node deleted: %s\n", ip_carrier.c_str());
                     return;
                 }
-            }
-        }
-        else if (msg.type == MSG_JOIN)
-        {
-            struct Node newnode;
-            newnode.ip_str = sender;
-            newnode.active = true;
-            nodes.push_back(newnode);
-            std::cout << "New Node: " << sender << std::endl;
-
-            for (int i = 0; i < nodes.size() - 1 ; ++i) //Send to all but the last added
-            {
-                sendUDP(sockfd, nodes.at(i).ip_str , port, (char*)&msg, sizeof(msg));
             }
         }
         else
@@ -163,64 +145,106 @@ void forJoinThread(){
     int listenFd = open_socket(port + 1);   //use the port next to UDP as TCP port
     while(true)
     {
+        cout<<"ForJoinThread: one node asking for membership list"<<endl;
         int ret;
         int connFd = listen_socket(listenFd);
 
-        int * buffer = new int;
+        Message income;
+        read(connFd, &income, sizeof(income));
 
-        msgQueueLock.lock();
+        membersLock.lock();
+
+        int size = members.size();
         
-        *buffer = members.size();
+        //prepare all the members
+        Message * buffer = new Message[size];
+        char addr[4];
+        for(int i=0; i < size; i++){
+        	buffer[i].type = MSG_JOIN;
+    		buffer[i].roundId = -1;
+    		ipString2Char4(members[i].ip_str, addr);
+    		for(int j=0; j < 4; j++)
+    			buffer[i].carrierAdd[j] = addr[j];
+    		buffer[i].timeStamp = members[i].timeStamp;
+    		buffer[i].TTL = 0;
+        }
         
-        TransferNode * buffer2 = new TransferNode[*buffer];
-        for(int i=0; i < *buffer; i++){
-            //strcpy(buffer2[i].name, members[i].name.c_str());
-            strcpy(buffer2[i].ip_str, members[i].ip_str.c_str());
-            buffer2[i].port = members[i].port;
-            buffer2[i].timeStamp = members[i].timeStamp;
-            buffer2[i].active = members[i].active;
+        membersLock.unlock();
+
+        Message sizeMsg;
+        sizeMsg.timeStamp = size;
+        ret = write(connFd, &sizeMsg, sizeof(Message) );
+
+        for(int i=0; i < size; i++){
+        	ret = write(connFd, buffer+i, sizeof(Message) );
+        	cout<<"sending "<<getSenderIP(buffer[i].carrierAdd)<<" "<<buffer[i].timeStamp<<endl;
         }
 
-        msgQueueLock.unlock();
-
-        ret = write(connFd, (char*)buffer, sizeof(int));
-
-        ret = write(connFd, (char*)buffer2, sizeof(TransferNode)*(*buffer));
-
-        delete buffer;
-        delete [] buffer2;
-
+        delete [] buffer;
         close(connFd);
     }
     return;
 }
 
-char * getOwnIPAddr(){
-    struct ifaddrs * ifAddrStruct=NULL;
-    struct ifaddrs * ifa=NULL;
-    void * tmpAddrPtr=NULL;
+bool firstJoin(){
+    cout<<"in Join"<<endl;
+    //set my own addr, ip, timeStamp
+    myTimeStamp = time(NULL);
+    my_ip_str = getOwnIPAddr();
+    ipString2Char4(my_ip_str, myAddr);
+    
+    //now I have my self as member
+    addMember( myAddr, myTimeStamp );
 
-    getifaddrs(&ifAddrStruct);
-    char *result;
+    bool joined = false;
 
-    int i=0;
-    for (ifa = ifAddrStruct; ifa != NULL; ifa = ifa->ifa_next) {
-        if (!ifa->ifa_addr) {
+    Message msg;
+    msg.type = MSG_JOIN;
+    msg.roundId = -1;
+    for(int i=0; i < 4; i++)
+        msg.carrierAdd[i] = myAddr[i];
+    msg.timeStamp = myTimeStamp;
+    msg.TTL = 0;
+
+    for(int i=0; (i < nodes.size()) && !joined ; i++){
+        int connectionToServer;
+        //TCP connect to introducer/other nodes
+        cout<<"FirstJoin: try to connect to "<<nodes[i].ip_str<<endl;
+        int ret = connect_to_server(nodes[i].ip_str.c_str(), port + 1, &connectionToServer);
+        if(ret!=0){
+            cout<<"FirstJoin: cannot connect to "<<nodes[i].ip_str<<endl;
             continue;
         }
-        i++;
-        if(i==4){
-            tmpAddrPtr=&((struct sockaddr_in *)ifa->ifa_addr)->sin_addr;
-            char addressBuffer[INET_ADDRSTRLEN];
-            inet_ntop(AF_INET, tmpAddrPtr, addressBuffer, INET_ADDRSTRLEN);
-            printf("%s IP Address %s\n", ifa->ifa_name, addressBuffer);  
-            result = new char[strlen(addressBuffer)+1];
-            strcpy(result, addressBuffer);
-        }
+        else{
+            ret = write(connectionToServer, &msg, sizeof(Message) );
+            
+            Message newMsg;
+            read(connectionToServer, &newMsg, sizeof(Message));
+
+            int size = newMsg.timeStamp;
+            cout<<size<<endl;
+            
+            int j=0;
+            for(j=0; j < size; j++){
+                read(connectionToServer, &newMsg, sizeof(Message));
+                cout<<"received "<<getSenderIP(newMsg.carrierAdd)<<" "<<newMsg.timeStamp<<endl;
+                addMember(newMsg.carrierAdd, newMsg.timeStamp);
+            }
+
+            if(j == size){
+                joined = true;
+            }
+            else{
+            	cout<<"during downloading membership list, it failed"<<endl;
+            }
+
+            close(connectionToServer);
+        }    
     }
-    
-    if (ifAddrStruct!=NULL) freeifaddrs(ifAddrStruct);
-    return result;
+
+    printMember();
+
+    return joined;
 }
 
 int main (int argc, char* argv[])
@@ -232,31 +256,33 @@ int main (int argc, char* argv[])
     std::cout << std::endl << std::endl;
 
     port   = atoi(argv[1]);
+    isIntroducer = atoi(argv[2]);
+
     sockfd = bindSocket( port);
 
-    getAdress("Address.add");
+    if(isIntroducer)
+        getAdress("Address.add");
+    else
+        getAdress("AddrIntro.add");
 
-    getOwnIPAddr();
+    bool joined = false;
+    joined = firstJoin();
+    while( !isIntroducer && !joined){   //introducer will firstJoin() once. Other node will keep firstJoin() until it enter the group.
+        joined = firstJoin();
+        usleep( 1000*1000 );
+    }
 
-    //join(sockfd, "127.0.0.1", port);
-    /*for (int i = 0; i < K_FORWARD; ++i)
-    {
-        int dest = rand() % NODES_NUMBER + 0;
-        std::cout <<"send join message to: "<< address.at(dest) << std::endl;    //zxw: later we will use nodes[] instead address[]
-        join(sockfd, nodes.at(dest).ip_str, port);
-    }*/
+
 
     std::thread forJoin(forJoinThread);
 
-    //failureDetected("121.122.123.124");
-
-    std::thread listening(listeningThread);
-    std::thread sending(sendingThread);
-    usleep(700);
+    //std::thread listening(listeningThread);
+    //std::thread detecting(detectThread);
     
-    listening.join();
-    sending.join();
-    forJoin.join();    
+    forJoin.join();  
+    //listening.join();
+    //detecting.join();
+  
     
     return 0;
 }
