@@ -5,12 +5,15 @@
 
 #include <iostream>
 #include <string>
+#include "connections.h"
+#include "constant.h"
 
-void spreadFailure(int sockfd, std::string dest, int port, std::string carrier);
-void spreadLeave(int sockfd, std::string dest, int port, std::string carrier);
+using namespace std;
 
 void ipString2Char4(std::string ip, char* buf);
 
-void failureDetected(std::string failAdd); // This is the method we call when we detect a failure
+void spreadMessage(Message msg);
+
+void failureDetected(Node process); // This is the method we call when we detect a failure
 
 #endif

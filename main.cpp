@@ -36,6 +36,7 @@ vector<Node> members;  //store members in the group
 
 int port, sockfd;   //for UDP connection
 
+mutex roundLock;
 int roundId;    //used by detect thread.
 
 bool isIntroducer;
@@ -81,7 +82,58 @@ void getAdress(std::string filename)
     }
 }
 
+/*
+	if TTL == 0
+		send back a ack message
+	else if TTL == 1
+		send a ping message to carrier addr, with carrier=sender addr
+	else
+		cout<<"ping message with wrong TTL"
+*/
+void pingMsg( Message msg, string sender ){
 
+}
+
+/*
+	if TTL == 0
+		if(roundId is right)
+			pushMsg()
+	else if TTL == 1
+		send ack message to carrier addr, with carrier=sender addr
+	else
+		cout<<"ack message with wrong TTL"
+*/
+void ackMsg( Message msg, string sender ){
+
+}
+
+/*
+	fail the carrier node
+	cout<<carrier failed
+	msg.TTL--;
+	spreadMessage(msg) 
+*/
+void failMsg( Message msg, string sender ){
+
+}
+
+
+/*
+	call rejoin()	//only when me is fault-failured
+*/
+void joinMsg( Message msg, string sender ){
+
+}
+
+/*
+	fail the carrier node
+	cout<<carrier failed
+	msg.TTL--;
+	spreadMessage(msg) 
+*/
+void leaveMsg( Message msg, string sender ){
+
+}
 
 void listeningThread()
 {
@@ -89,13 +141,12 @@ void listeningThread()
     struct Message msg;
     std::string sender;
     srand (time(NULL));
-
+    std::cout<< endl <<"listeningThread: thread begins"<<endl; 
     while (true)
     {
-        std::cout<< endl <<"listeningThread: linsten round start"<<endl; 
         int byte_count = receiveUDP(sockfd, (char*)&msg, sizeof(msg), sender);
 
-        printf("listeningThread: Received from: %s\n", sender.c_str());
+        printf("listeningThread: Receive message from: %s\n", sender.c_str());
 
         if (byte_count != sizeof(msg))
         {
@@ -105,43 +156,20 @@ void listeningThread()
 
         std::cout<<"listeningThread: received msg type and TTL: "<<msg.type<<" "<<(int)msg.TTL<<endl;
         
-        // Get the ip address of the sender
-        std::string ip_carrier = getSenderIP(msg.carrierAdd);
-
-        if (msg.type == MSG_FAIL || msg.type == MSG_LEAVE)
-        {
-            msg.TTL--; // Keep spreading
-            if (msg.TTL > 0)
-            {
-                for (int i = 0; i < K_FORWARD; ++i)
-                {
-                    int dest = rand() % NODES_NUMBER + 0;
-                    std::cout<<"listeningThread: forward msg type and TTL: "<<msg.type<<" "<<(int)msg.TTL<<endl;
-                    std::cout <<"listeningThread: forward message to: "<< address.at(dest) << std::endl;    //zxw: later we will use nodes[] instead address[]
-                    sendUDP(sockfd, nodes.at(dest).ip_str , port, (char*)&msg, sizeof(msg));
-                }
-            }
-            
-            std::cout << "listeningThread: Failed: " << ip_carrier << std::endl;
-
-            for (int i = 0; i < nodes.size(); ++i)
-            {
-                if ( ip_carrier.compare(nodes.at(i).ip_str) == 0 ) 
-                {
-                    //We should also check timestamp
-                    //nodes.at(i).active = 0; // Remove the node from the list
-                    nodes.erase(nodes.begin()+1);
-                    printf("listeningThread: Node deleted: %s\n", ip_carrier.c_str());
-                    return;
-                }
-            }
-        }
-        else
-        {
-            printf("listeningThread: Unknown opcode of received messade: %d\n", msg.type);
+        if(msg.type == MSG_PING)
+        	pingMsg(msg, sender);
+        else if(msg.type == MSG_ACK)
+        	ackMsg(msg, sender);
+        else if(msg.type == MSG_FAIL)
+        	failMsg(msg, sender);
+        else if(msg.type == MSG_JOIN)
+        	joinMsg(msg, sender);
+        else if(msg.type == MSG_LEAVE)
+        	leaveMsg(msg, sender);
+        else{
+        	cout<<"listeningThread: received msg does not belong to a type"<<endl;
         }
 
-        //break;
     }
 }
 
@@ -256,7 +284,12 @@ void forJoinThread(){
 
 bool firstJoin(){
     cout<<"calling firstJoin"<<endl;
-    //set my own addr, ip, timeStamp
+   
+    roundLock.lock();
+    roundId = 0;
+    roundLock.unlock();
+
+    //set my own addr, ip, timeStamp, roundID
     myTimeStamp = time(NULL);
     my_ip_str = getOwnIPAddr();
     ipString2Char4(my_ip_str, myAddr);
@@ -320,9 +353,7 @@ bool firstJoin(){
 
 int main (int argc, char* argv[])
 {
-    char a;
-    roundId = 0;
-
+    srand (time(NULL));
     std::cout << std::endl << "CS425 - MP2: Membership Protocol." ;
     std::cout << std::endl << std::endl;
 
@@ -347,12 +378,12 @@ int main (int argc, char* argv[])
 
     std::thread forJoin(forJoinThread);
 
-    //std::thread listening(listeningThread);
-    //std::thread detecting(detectThread);
+    std::thread listening(listeningThread);
+    std::thread detecting(detectThread);
     
     forJoin.join();  
-    //listening.join();
-    //detecting.join();
+    listening.join();
+    detecting.join();
   
     
     return 0;

@@ -3,9 +3,8 @@
 
 typedef enum MessageType
 {
-    MSG_ACK,
     MSG_PING,
-    MSG_PIGGY,
+    MSG_ACK,
     MSG_FAIL,
     MSG_JOIN,		//only for TCP connection
     MSG_LEAVE,
