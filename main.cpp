@@ -355,7 +355,7 @@ bool firstJoin(){
     msg.timeStamp = myTimeStamp;
     msg.TTL = isIntroducer;	//used to distinguish joining node is Introducer or not
 
-    for(int i=0; (i < nodes.size()) && !joined ; i++){
+    for(int i=0; (i < nodes.size()) /*&& !joined*/ ; i++){
         int connectionToServer;
         //TCP connect to introducer/other nodes
         cout<<"FirstJoin: try to connect to "<<nodes[i].ip_str<<endl;
