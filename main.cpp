@@ -28,11 +28,13 @@
 
 using namespace std;
 
-vector<Node> nodes;    //store initial nodes
-vector<std::string> address;
+std::vector<Node> nodes;    //store initial nodes
+std::vector<std::string> address;
+
+std::ofstream logFile;
 
 mutex membersLock;
-vector<Node> members;  //store members in the group
+std::vector<Node> members;  //store members in the group
 
 int port, sockfd;   //for UDP connection
 
@@ -45,19 +47,20 @@ int myTimeStamp;
 string my_ip_str;
 char myAddr[4];
 
-vector<Message> msgQueue;
+std::vector<Message> msgQueue;
 mutex msgQueueLock;
 
 /* Get address from other nodes: */
 void getAdress(std::string filename)
 {
-    ifstream addFile(filename);
+    std::ifstream addFile(filename);
 
     std::string str;
     int i=0; 
     
-    while(getline(addFile, str)!=0)
+    while(!addFile.eof())
     {
+        getline(addFile, str);
         address.push_back(str);
         struct hostent *server = gethostbyname(str.c_str());
 
@@ -74,10 +77,10 @@ void getAdress(std::string filename)
 
         nodes.push_back(newnode);
         if(isIntroducer)
-        	cout<<"getAdress: Introducer ";
+        	logFile<<"getAdress: Introducer ";
         else
-        	cout<<"getAdress: non-Introducer ";
-        cout << "read node " << i << " from addr file: " << str << " : " << ip_str << std::endl;
+        	logFile<<"getAdress: non-Introducer ";
+        logFile << "read node " << i << " from addr file: " << str << " : " << ip_str << std::endl;
         i++;
     }
 }
@@ -90,7 +93,7 @@ void getAdress(std::string filename)
 	else if TTL == 1
 		send back an ack message (TTL=2, type=ACK)
 	else
-		cout<<"ping message with wrong TTL"
+		logFile<<"ping message with wrong TTL"
 */
 void pingMsg( Message msg, string sender ){
 	if(msg.TTL == 0){
@@ -111,7 +114,7 @@ void pingMsg( Message msg, string sender ){
 		sendUDP( sockfd,  sender, port, (char*)&msg, sizeof(Message) );
 	}
 	else{
-		cout<<"pingMsg: this ping message has illegal TTL"<<endl;
+		logFile<<"pingMsg: this ping message has illegal TTL"<<endl;
 	}
 }
 
@@ -121,7 +124,7 @@ void pingMsg( Message msg, string sender ){
 	else if TTL == 2
 		send message to carrier (message carrier=sender Addr, TTL = 1)
 	else
-		cout<<"ack message with wrong TTL"
+		logFile<<"ack message with wrong TTL"
 */
 void ackMsg( Message msg, string sender ){
 	if(msg.TTL==0 || msg.TTL==1){
@@ -138,14 +141,14 @@ void ackMsg( Message msg, string sender ){
 		sendUDP( sockfd,  target, port, (char*)&msg, sizeof(Message) );
 	}
 	else{
-		cout<<"ackMsg: this ack message has illegal TTL"<<endl;
+		logFile<<"ackMsg: this ack message has illegal TTL"<<endl;
 	}
 
 }
 
 /*
 	fail the carrier node
-	cout<<carrier failed
+	logFile<<carrier failed
 	msg.TTL--;
 	spreadMessage(msg) 
 */
@@ -153,7 +156,7 @@ void failMsg( Message msg, string sender ){
 	if(msg.TTL==0)
 		return;
 	string ip_str = getSenderIP(msg.carrierAdd);
-	cout<<"failMsg: node "<<ip_str<<" failed"<<endl;
+	logFile<<"failMsg: node "<<ip_str<<" failed"<<endl;
 	failMember(msg.carrierAdd, msg.timeStamp);
 	msg.TTL--;
 	spreadMessage(msg);
@@ -171,13 +174,13 @@ void joinMsg( Message msg, string sender ){
 
 /*
 	fail the carrier node
-	cout<<carrier failed
+	logFile<<carrier failed
 	msg.TTL--;
 	spreadMessage(msg) 
 */
 void leaveMsg( Message msg, string sender ){
 	string ip_str = getSenderIP(msg.carrierAdd);
-	cout<<"leaveMsg: node "<<ip_str<<" leaved"<<endl;
+	logFile<<"leaveMsg: node "<<ip_str<<" leaved"<<endl;
 	failMember(msg.carrierAdd, msg.timeStamp);
 	msg.TTL--;
 	spreadMessage(msg);
@@ -189,20 +192,20 @@ void listeningThread()
     struct Message msg;
     std::string sender;
     srand (time(NULL));
-    std::cout<< endl <<"listeningThread: thread begins"<<endl; 
+    logFile<< endl <<"listeningThread: thread begins"<<endl; 
     while (true)
     {
         int byte_count = receiveUDP(sockfd, (char*)&msg, sizeof(msg), sender);
 
-        printf("listeningThread: Receive message from: %s\n", sender.c_str());
+        logFile << "listeningThread: Receive message from: " << sender.c_str() << std::endl;
 
         if (byte_count != sizeof(msg))
         {
-            printf("listeningThread: Error in size receiving: Message dropped\n");
+            logFile << "listeningThread: Error in size receiving: Message dropped" << std::endl;
             continue;
         }
 
-        std::cout<<"listeningThread: received msg type and TTL: "<<msg.type<<" "<<(int)msg.TTL<<endl;
+        logFile<<"listeningThread: received msg type and TTL: "<<msg.type<<" "<<(int)msg.TTL<<endl;
         
         if(msg.type == MSG_PING)
         	pingMsg(msg, sender);
@@ -215,7 +218,7 @@ void listeningThread()
         else if(msg.type == MSG_LEAVE)
         	leaveMsg(msg, sender);
         else{
-        	cout<<"listeningThread: received msg does not belong to a type"<<endl;
+        	logFile<<"listeningThread: received msg does not belong to a type"<<endl;
         }
 
     }
@@ -248,7 +251,7 @@ int sendBackLocalList(int connFd){
 
     for(int i=0; i < size; i++){
     	ret = write(connFd, buffer+i, sizeof(Message) );
-    	cout<<"sendBackLocalList: sending "<<getSenderIP(buffer[i].carrierAdd)<<" "<<buffer[i].timeStamp<<endl;
+    	logFile<<"sendBackLocalList: sending "<<getSenderIP(buffer[i].carrierAdd)<<" "<<buffer[i].timeStamp<<endl;
     }
     delete [] buffer;
     return 0;
@@ -258,10 +261,10 @@ int broadcastJoin(Message income, int i){
 	income.TTL = 0;
 	int connectionToServer;
     //TCP connect to members of introducer
-    cout<<"broadcastJoin: Introducer trying to broadcast join to "<<members[i].ip_str<<endl;
+    logFile<<"broadcastJoin: Introducer trying to broadcast join to "<<members[i].ip_str<<endl;
     int ret = connect_to_server(members[i].ip_str.c_str(), port + 1, &connectionToServer);
     if(ret!=0){
-        cout<<"broadcastJoin: cannot connect to "<<members[i].ip_str<<endl;
+        logFile<<"broadcastJoin: cannot connect to "<<members[i].ip_str<<endl;
         return 1;
     }
     else{
@@ -278,7 +281,7 @@ void forJoinThread(){
         int ret;
         int connFd = listen_socket(listenFd);
 
-        cout<<"ForJoinThread: one node asking for membership list"<<endl;
+        logFile<<"ForJoinThread: one node asking for membership list"<<endl;
 
         Message income;
         char addr[4];
@@ -325,13 +328,13 @@ void forJoinThread(){
 
         close(connFd);
         
-        printMember();
+        //printMember();
     }
     return;
 }
 
 bool firstJoin(){
-    cout<<"calling firstJoin"<<endl;
+    logFile<<"calling firstJoin"<<endl;
    
     roundLock.lock();
     roundId = 0;
@@ -358,10 +361,10 @@ bool firstJoin(){
     for(int i=0; (i < nodes.size()) /*&& !joined*/ ; i++){
         int connectionToServer;
         //TCP connect to introducer/other nodes
-        cout<<"FirstJoin: try to connect to "<<nodes[i].ip_str<<endl;
+        logFile<<"FirstJoin: try to connect to "<<nodes[i].ip_str<<endl;
         int ret = connect_to_server(nodes[i].ip_str.c_str(), port + 1, &connectionToServer);
         if(ret!=0){
-            cout<<"FirstJoin: cannot connect to "<<nodes[i].ip_str<<endl;
+            logFile<<"FirstJoin: cannot connect to "<<nodes[i].ip_str<<endl;
             continue;
         }
         else{
@@ -377,7 +380,7 @@ bool firstJoin(){
             int j=0;
             for(j=0; j < size; j++){
                 read(connectionToServer, msgs + j, sizeof(Message));
-                cout<<"FirstJoin: received "<<getSenderIP(msgs[j].carrierAdd)<<" "<<msgs[j].timeStamp<<endl;
+                logFile<<"FirstJoin: received "<<getSenderIP(msgs[j].carrierAdd)<<" "<<msgs[j].timeStamp<<endl;
             }
 
             if(j == size){
@@ -386,7 +389,7 @@ bool firstJoin(){
                 	addMember(msgs[j].carrierAdd, msgs[j].timeStamp);
             }
             else{
-            	cout<<"FirstJoin: during downloading membership list, it failed"<<endl;
+            	logFile<<"FirstJoin: during downloading membership list, it failed"<<endl;
             }
 
             delete [] msgs;
@@ -394,9 +397,37 @@ bool firstJoin(){
         }    
     }
 
-    printMember();
+    //printMember();
 
     return joined;
+}
+
+/* User thread: Waits for user to input a grep command 
+When receiving the grep command from command line (test cases uses this), 
+it will bypass the cin*/
+void listeningCin()
+{
+    std::string input;
+    while (true)
+    {
+
+        std::cout << "Type a command (table, leave or quit): ";
+        getline(std::cin, input);
+        std::cout << "You entered: " << input << std::endl;
+
+        if (input.compare("quit") == 0)
+        {
+            std::cout << "Exiting normally " << std::endl;
+            exit(0);
+        }
+        else if (input.compare("table") == 0)
+        {
+            std::cout << printMember();
+        }
+
+    }
+
+    return;
 }
 
 int main (int argc, char* argv[])
@@ -405,15 +436,21 @@ int main (int argc, char* argv[])
     std::cout << std::endl << "CS425 - MP2: Membership Protocol." ;
     std::cout << std::endl << std::endl;
 
+    logFile.open("log.log");
+    logFile << "Inicializing! " << std::endl;
+
     port   = atoi(argv[1]);
     isIntroducer = atoi(argv[2]);
 
     sockfd = bindSocket( port);
 
-    if(isIntroducer)
+    if(isIntroducer){
+        logFile << "I am the introducer! " << std::endl;
         getAdress("Address.add");
-    else
+    }
+    else{
         getAdress("AddrIntro.add");
+    }
 
     bool joined = false;
     joined = firstJoin();
@@ -423,15 +460,18 @@ int main (int argc, char* argv[])
     }
 
 
-
     std::thread forJoin(forJoinThread);
 
     std::thread listening(listeningThread);
     std::thread detecting(detectThread);
+
+    /*User thread */
+    std::thread cinListening(listeningCin);
     
     forJoin.join();  
     listening.join();
     detecting.join();
+    cinListening.join();
   
     
     return 0;

@@ -2,7 +2,7 @@
 
 #include "detect.h"
 
-extern stringstream toFile;
+extern std::ofstream logFile;
 
 extern int port;
 extern int sockfd;
@@ -15,14 +15,18 @@ extern mutex msgQueueLock;
 extern mutex membersLock;
 extern vector<Node> members;  //store members in the group
 
-void printMember(){
+std::string printMember(){
+
+    std::stringstream ret;
     membersLock.lock();
-    cout<<endl<<"Print members: "<<endl;
+    ret<<std::endl<<"Print members: "<<std::endl;
     for(int i=0; i < members.size(); i++){
-        cout<<"Member["<<i<<"]: "<<members[i].ip_str<<" "<<members[i].timeStamp<<" "<<members[i].active<<endl;
+        ret<<"Member["<<i<<"]: "<<members[i].ip_str<<" "<<members[i].timeStamp<<" "<<members[i].active<<std::endl;
     }
-    cout<<endl;
-    membersLock.unlock();    
+    ret<<std::endl;
+    membersLock.unlock();  
+
+    return ret.str();  
 }
 
 //if already exist, return 1. else return 0
@@ -183,10 +187,11 @@ void detectThread()
     */
     while(true){
         roundId++;
-        cout<<"detectThread: round: "<<roundId<<endl;
-        printMember();
 
-        cout<<endl<<endl;
+        logFile<<"detectThread: round: "<<roundId<<std::endl;
+        logFile<<printMember();
+
+        //logFile<<std::endl<<std::endl;
         
         if(members.size() < 2){
             usleep(5 * MAX_LATENCY);
@@ -203,7 +208,7 @@ void detectThread()
         ipString2Char4(theNode.ip_str, msg.carrierAdd);
         msg.timeStamp = 0;
 
-        cout<<"detectThread: checking alive or not for "<<theNode.ip_str<<" "<<theNode.timeStamp<<endl;
+        logFile<<"detectThread: checking alive or not for "<<theNode.ip_str<<" "<<theNode.timeStamp<<std::endl;
         sendUDP(sockfd, theNode.ip_str, port, (char*)&msg, sizeof(Message));
 
         bool acked = false;
@@ -215,7 +220,7 @@ void detectThread()
         msgQueueLock.unlock();
 
         if(acked){
-            cout<<"detectThread: node alive: "<<theNode.ip_str<<" "<<theNode.timeStamp<<endl;
+            logFile<<"detectThread: node alive: "<<theNode.ip_str<<" "<<theNode.timeStamp<<std::endl;
             usleep(4 * MAX_LATENCY);     
             continue;       
         }
@@ -229,11 +234,11 @@ void detectThread()
         msgQueueLock.unlock();
 
         if(acked){
-            cout<<"detectThread: second round found node alive: "<<theNode.ip_str<<" "<<theNode.timeStamp<<endl;
+            logFile<<"detectThread: second round found node alive: "<<theNode.ip_str<<" "<<theNode.timeStamp<<std::endl;
             continue;
         }
         else{
-            cout<<"detectThread: node failed: "<<theNode.ip_str<<" "<<theNode.timeStamp<<endl;
+            logFile<<"detectThread: node failed: "<<theNode.ip_str<<" "<<theNode.timeStamp<<std::endl;
             
             failMember(theNode.ip_str, theNode.timeStamp);
 

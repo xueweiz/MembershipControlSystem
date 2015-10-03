@@ -29,7 +29,8 @@ int bindSocket(int port)
     svrAdd.sin_port = htons(port);
     
     //bind socket
-    if(bind(sockfd, (struct sockaddr *)&svrAdd, sizeof(svrAdd)) < 0)
+    int ret = ::bind(sockfd, (struct sockaddr *)&svrAdd, sizeof(svrAdd));
+    if( ret < 0)
     {
         std::cout << "open_socket: Cannot bind" << std::endl;
         exit(1);
@@ -116,7 +117,9 @@ int open_socket(int port)
     svrAdd.sin_port = htons(port);
     
     //bind socket
-    if(bind(listenFd, (struct sockaddr *)&svrAdd, sizeof(svrAdd)) < 0)
+
+    int ret = ::bind(listenFd, (struct sockaddr *)&svrAdd, sizeof(svrAdd));
+    if(ret < 0)
     {
         std::cout << "open_socket: Cannot bind" << std::endl;
         exit(1);

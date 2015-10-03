@@ -29,15 +29,13 @@
 #include "spread.h"
 #include "ChronoCpu.h"
 
-using namespace std;
-
 void sendPing(int sockfd, std::string dest, int port, int roundId, std::string carrier);
 
 void sendAck(int sockfd, std::string dest, int port, int roundId, std::string carrier);
 
 void detectThread();
 
-void printMember();
+std::string printMember();
 
 //if already exist, return 1. else return 0
 int addMember(char * carrierAdd, int timeStamp);
