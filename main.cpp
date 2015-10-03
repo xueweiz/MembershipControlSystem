@@ -84,26 +84,62 @@ void getAdress(std::string filename)
 
 /*
 	if TTL == 0
-		send back a ack message
+		send back an ack message ( change type to ack)
+	else if TTL == 2
+		send ping message to carrier addr (message carrier=sender Addr, TTL = 1)
 	else if TTL == 1
-		send a ping message to carrier addr, with carrier=sender addr
+		send back an ack message (TTL=2, type=ACK)
 	else
 		cout<<"ping message with wrong TTL"
 */
 void pingMsg( Message msg, string sender ){
+	if(msg.TTL == 0){
+		msg.type = MSG_ACK;
+		sendUDP( sockfd,  sender, port, (char*)&msg, sizeof(Message) );
+	}
+	else if(msg.TTL == 2){
+		string target = getSenderIP(msg.carrierAdd);
+		msg.TTL = 1;
 
+		ipString2Char4(sender, msg.carrierAdd);	
+
+		sendUDP( sockfd,  target, port, (char*)&msg, sizeof(Message) );
+	}
+	else if(msg.TTL == 1){
+		msg.TTL = 2;
+		msg.type = MSG_ACK;
+		sendUDP( sockfd,  sender, port, (char*)&msg, sizeof(Message) );
+	}
+	else{
+		cout<<"pingMsg: this ping message has illegal TTL"<<endl;
+	}
 }
 
 /*
-	if TTL == 0
-		if(roundId is right)
-			pushMsg()
-	else if TTL == 1
-		send ack message to carrier addr, with carrier=sender addr
+	if TTL == 0 || 1
+		pushMsg()
+	else if TTL == 2
+		send message to carrier (message carrier=sender Addr, TTL = 1)
 	else
 		cout<<"ack message with wrong TTL"
 */
 void ackMsg( Message msg, string sender ){
+	if(msg.TTL==0 || msg.TTL==1){
+		msgQueueLock.lock();
+		pushMsgQueue(msg);
+		msgQueueLock.unlock();
+	}
+	else if(msg.TTL == 2){
+		string target = getSenderIP(msg.carrierAdd);
+		msg.TTL = 1;
+
+		ipString2Char4(sender, msg.carrierAdd);	
+
+		sendUDP( sockfd,  target, port, (char*)&msg, sizeof(Message) );
+	}
+	else{
+		cout<<"ackMsg: this ack message has illegal TTL"<<endl;
+	}
 
 }
 
@@ -114,15 +150,23 @@ void ackMsg( Message msg, string sender ){
 	spreadMessage(msg) 
 */
 void failMsg( Message msg, string sender ){
-
+	if(msg.TTL==0)
+		return;
+	string ip_str = getSenderIP(msg.carrierAdd);
+	cout<<"failMsg: node "<<ip_str<<" failed"<<endl;
+	failMember(msg.carrierAdd, msg.timeStamp);
+	msg.TTL--;
+	spreadMessage(msg);
 }
 
 
 /*
-	call rejoin()	//only when me is fault-failured
+	call rejoin()	//only when me is false-failured
 */
 void joinMsg( Message msg, string sender ){
-
+	//if you get this message, it means you has been failed by other nodes.
+	//this means false-failure
+	//you should call rejoin()
 }
 
 /*
@@ -132,7 +176,11 @@ void joinMsg( Message msg, string sender ){
 	spreadMessage(msg) 
 */
 void leaveMsg( Message msg, string sender ){
-
+	string ip_str = getSenderIP(msg.carrierAdd);
+	cout<<"leaveMsg: node "<<ip_str<<" leaved"<<endl;
+	failMember(msg.carrierAdd, msg.timeStamp);
+	msg.TTL--;
+	spreadMessage(msg);
 }
 
 void listeningThread()

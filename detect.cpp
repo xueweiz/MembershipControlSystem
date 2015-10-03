@@ -56,9 +56,8 @@ int addMember(char * carrierAdd, int timeStamp){
 }
 
 //check IP
-int checkMember(char * carrierAdd){
+int checkMember(string ip_str){
     bool exist = false;
-    string ip_str = getSenderIP(carrierAdd);
     
     membersLock.lock();
     
@@ -74,9 +73,8 @@ int checkMember(char * carrierAdd){
 }
 
 //check IP + timeStamp
-int checkMember(char * carrierAdd, int timeStamp){
+int checkMember(string ip_str, int timeStamp){
     bool exist = false;
-    string ip_str = getSenderIP(carrierAdd);
     
     membersLock.lock();
     
@@ -92,8 +90,7 @@ int checkMember(char * carrierAdd, int timeStamp){
 }
 
 //if already failed, return 1. else return 0
-int failMember(char * carrierAdd, int timeStamp){
-    string ip_str = getSenderIP(carrierAdd);
+int failMember(string ip_str, int timeStamp){
 
     membersLock.lock();
 
@@ -116,57 +113,140 @@ int failMember(char * carrierAdd, int timeStamp){
 }
 
 bool msgQueueEmpty(){
-	msgQueueLock.lock();
 	bool empty;
 	if(msgQueue.size()==0)
 		empty = true;
 	else
 		empty = false;
-	msgQueueLock.unlock();
 	return empty;
 }
 
 Message popMsgQueue(){
 	Message msg;
 	msg.type= MSG_EMPTY;
-	msgQueueLock.lock();
 
 	if(msgQueue.size()!=0){
 		msg = msgQueue.back();
 		msgQueue.pop_back();
 	}
 	
-	msgQueueLock.unlock();
 	return msg;
 }
 
 void pushMsgQueue(Message msg){
-	msgQueueLock.lock();
 	msgQueue.push_back(msg);	
-	msgQueueLock.unlock();
 	return;
 }
 
 int queueSize(){
-	msgQueueLock.lock();
 	int size = msgQueue.size();
-	msgQueueLock.unlock();
 	return size;
 }
 
-void sendPing(int sockfd, string dest, int port, string carrier){
-	struct Message msg;
-	msg.roundId = roundId;
-    msg.type = MSG_PING;
-    msg.timeStamp = 0;
-    msg.TTL = 0;
-
-    ipString2Char4(carrier, msg.carrierAdd);
-
-    sendUDP(sockfd, dest, port, (char*)&msg, sizeof(msg));
+bool ackMsgQueue(){
+    bool acked = false;
+    while(!msgQueueEmpty()){
+        Message receive = popMsgQueue();
+        if(receive.roundId==roundId)
+            acked = true;
+    }
+    return acked;
 }
 
 void detectThread()
 {
+    /*
+    WHILE LOOP
+        roundId++
 
+        randomly select one node
+        send ping message
+        sleep(1)
+        see msgQueue, search ack
+        if(ack)
+            cout<<alive
+            sleep(4)
+            continue
+        
+        send ping message to random K nodes (call spreadMessage())
+        sleep(4)
+        see msgQueue, search ack
+        if(ack)
+            cout<<alive
+            continue
+        
+        if(!ack)
+            cout<<fail
+            delete node
+            send fail message to other nodes
+            continue
+    */
+    while(true){
+        roundId++;
+        cout<<"detectThread: round: "<<roundId<<endl;
+        printMember();
+
+        cout<<endl<<endl;
+        
+        if(members.size() < 2){
+            usleep(5 * MAX_LATENCY);
+            continue;
+        }
+
+        int select = rand()%(members.size()-1) + 1;
+        Node theNode = members[select];
+
+        Message msg;
+        msg.type = MSG_PING;
+        msg.TTL = 0;
+        msg.roundId = roundId;
+        ipString2Char4(theNode.ip_str, msg.carrierAdd);
+        msg.timeStamp = 0;
+
+        cout<<"detectThread: checking alive or not for "<<theNode.ip_str<<" "<<theNode.timeStamp<<endl;
+        sendUDP(sockfd, theNode.ip_str, port, (char*)&msg, sizeof(Message));
+
+        bool acked = false;
+
+        usleep(MAX_LATENCY);
+
+        msgQueueLock.lock();
+        acked = ackMsgQueue();
+        msgQueueLock.unlock();
+
+        if(acked){
+            cout<<"detectThread: node alive: "<<theNode.ip_str<<" "<<theNode.timeStamp<<endl;
+            usleep(4 * MAX_LATENCY);     
+            continue;       
+        }
+
+        msg.TTL = 2;
+        spreadMessage(msg);
+        usleep(4 * MAX_LATENCY);
+
+        msgQueueLock.lock();
+        acked = ackMsgQueue();
+        msgQueueLock.unlock();
+
+        if(acked){
+            cout<<"detectThread: second round found node alive: "<<theNode.ip_str<<" "<<theNode.timeStamp<<endl;
+            continue;
+        }
+        else{
+            cout<<"detectThread: node failed: "<<theNode.ip_str<<" "<<theNode.timeStamp<<endl;
+            
+            failMember(theNode.ip_str, theNode.timeStamp);
+
+            Message failMsg;
+            failMsg.type = MSG_FAIL;
+            failMsg.roundId = roundId;
+            ipString2Char4(theNode.ip_str, failMsg.carrierAdd);
+            failMsg.timeStamp = theNode.timeStamp;
+            failMsg.TTL = 3;
+
+            spreadMessage(failMsg);
+
+            continue;
+        }
+    }
 }

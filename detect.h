@@ -43,12 +43,20 @@ void printMember();
 int addMember(char * carrierAdd, int timeStamp);
 
 //check IP
-int checkMember(char * carrierAdd);
+int checkMember(string ip_str);
 
 //check IP + timeStamp
-int checkMember(char * carrierAdd, int timeStamp);
+int checkMember(string ip_str, int timeStamp);
 
 //if already failed, return 1. else return 0
-int failMember(char * carrierAdd, int timeStamp);
+int failMember(string ip_str, int timeStamp);
+
+bool msgQueueEmpty();
+
+Message popMsgQueue();
+
+void pushMsgQueue(Message msg);
+
+int queueSize();
 
 #endif

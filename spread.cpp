@@ -75,7 +75,7 @@ void spreadMessage(Message msg)
     }
 
     for(int i=0; i < selectedSize; i++){
-        selectedNode.push_back(members[selectedInt[i]]);
+        selectedNode.push_back(members[1 + selectedInt[i]]);    //+1 is because never send to itself
     }
 
     delete selectedInt;

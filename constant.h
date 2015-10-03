@@ -19,6 +19,15 @@ struct Message {
 	char TTL;
 };
 
+/*
+	For Ping and Ack message. 
+	if TTL == 0
+		carrierAdd is the pinged or acked target
+	if TTL == 1
+		carrierAdd is the 
+	alway reply to sender, not carrierAdd
+*/
+
 struct Node {
 	string ip_str;	 // IP address in string format for easy compare;
 	int timeStamp;
@@ -32,6 +41,6 @@ struct Node {
 
 //  in ms
 #define SLEEP_TIME (50)
-#define MAX_LATENCY (2000)
+#define MAX_LATENCY (500*1000)	//0.1s
 
 #endif
