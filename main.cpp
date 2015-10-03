@@ -180,7 +180,7 @@ void joinMsg( Message msg, string sender ){
 */
 void leaveMsg( Message msg, string sender ){
 	string ip_str = getSenderIP(msg.carrierAdd);
-	logFile<<"leaveMsg: node "<<ip_str<<" leaved"<<endl;
+	logFile<<"leaveMsg: node "<<ip_str<<" leaved"<<std::endl;
 	failMember(msg.carrierAdd, msg.timeStamp);
 	msg.TTL--;
 	spreadMessage(msg);
@@ -192,33 +192,49 @@ void listeningThread()
     struct Message msg;
     std::string sender;
     srand (time(NULL));
-    logFile<< endl <<"listeningThread: thread begins"<<endl; 
+    logFile<< std::endl <<"listeningThread: thread begins"<<std::endl; 
     while (true)
     {
-        int byte_count = receiveUDP(sockfd, (char*)&msg, sizeof(msg), sender);
-
-        logFile << "listeningThread: Receive message from: " << sender.c_str() << std::endl;
-
-        if (byte_count != sizeof(msg))
+        if (members.empty())
         {
-            logFile << "listeningThread: Error in size receiving: Message dropped" << std::endl;
+            //In case the node decided to leave
             continue;
         }
 
-        logFile<<"listeningThread: received msg type and TTL: "<<msg.type<<" "<<(int)msg.TTL<<endl;
+        int byte_count = receiveUDP(sockfd, (char*)&msg, sizeof(msg), sender);
+
+        logFile << "listeningThread: Receive message from: " << sender.c_str() << " ";
+        logFile << msg.type << " " << (int)msg.TTL << std::endl;
+
+        if (byte_count != sizeof(msg))
+        {
+            logFile << "ERROR listeningThread: size receiving incorrect: Message dropped" << std::endl;
+            continue;
+        }
         
         if(msg.type == MSG_PING)
+        {
         	pingMsg(msg, sender);
+        }
         else if(msg.type == MSG_ACK)
+        {
         	ackMsg(msg, sender);
+        }
         else if(msg.type == MSG_FAIL)
+        {
         	failMsg(msg, sender);
+        }
         else if(msg.type == MSG_JOIN)
+        {
         	joinMsg(msg, sender);
+        }
         else if(msg.type == MSG_LEAVE)
+        {
         	leaveMsg(msg, sender);
-        else{
-        	logFile<<"listeningThread: received msg does not belong to a type"<<endl;
+        }
+        else
+        {
+        	logFile<<"ERROR: listeningThread: received msg does not belong to a type"<<std::endl;
         }
 
     }
@@ -293,7 +309,6 @@ void forJoinThread(){
         	//else, just add carrier node
         //if this is introducer node:
         	//send back local list. add carrier node. tell everyone carrier node is joining.
-
 
         //me is a normal node
         if(!isIntroducer){
@@ -411,9 +426,9 @@ void listeningCin()
     while (true)
     {
 
-        std::cout << "Type a command (table, leave or quit): ";
+        std::cout << "Type a command (table, leave, join or quit): ";
         getline(std::cin, input);
-        std::cout << "You entered: " << input << std::endl;
+        //std::cout << "You entered: " << input << std::endl;
 
         if (input.compare("quit") == 0)
         {
@@ -423,6 +438,32 @@ void listeningCin()
         else if (input.compare("table") == 0)
         {
             std::cout << printMember();
+        }
+        else if (input.compare("leave") == 0)
+        {
+            membersLock.lock();
+            Message msg;
+            msg.TTL = 4; // Just in case
+            ipString2Char4(members.at(0).ip_str, msg.carrierAdd);
+            msg.timeStamp = members.at(0).timeStamp;
+            membersLock.unlock();
+            spreadMessage(msg); // this method wants the lock!
+            membersLock.lock();
+            members.at(0).active = false;
+            members.clear();
+            membersLock.unlock();
+        }
+        else if (input.compare("join") == 0)
+        {
+            bool joined = firstJoin();
+            while( !isIntroducer && !joined)
+            {   //introducer will firstJoin() once. Other node will keep firstJoin() until it enter the group.
+                joined = firstJoin();
+                usleep( 1000*1000 );
+            }
+        }
+        else{
+            std::cout << "PLEASE CHECK AGAIN THE POSSIBLE OPTIONS" << std::endl;
         }
 
     }
@@ -452,8 +493,7 @@ int main (int argc, char* argv[])
         getAdress("AddrIntro.add");
     }
 
-    bool joined = false;
-    joined = firstJoin();
+    bool joined = firstJoin();
     while( !isIntroducer && !joined){   //introducer will firstJoin() once. Other node will keep firstJoin() until it enter the group.
         joined = firstJoin();
         usleep( 1000*1000 );
@@ -466,6 +506,7 @@ int main (int argc, char* argv[])
     std::thread detecting(detectThread);
 
     /*User thread */
+    usleep( 1000*1000 );
     std::thread cinListening(listeningCin);
     
     forJoin.join();  

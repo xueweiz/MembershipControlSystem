@@ -19,11 +19,9 @@ std::string printMember(){
 
     std::stringstream ret;
     membersLock.lock();
-    ret<<std::endl<<"Print members: "<<std::endl;
     for(int i=0; i < members.size(); i++){
         ret<<"Member["<<i<<"]: "<<members[i].ip_str<<" "<<members[i].timeStamp<<" "<<members[i].active<<std::endl;
     }
-    ret<<std::endl;
     membersLock.unlock();  
 
     return ret.str();  
@@ -188,7 +186,7 @@ void detectThread()
     while(true){
         roundId++;
 
-        logFile<<"detectThread: round: "<<roundId<<std::endl;
+        logFile<< std::endl << "Detection Thread - Round: "<< roundId << " ------------" << std::endl;
         logFile<<printMember();
 
         //logFile<<std::endl<<std::endl;
