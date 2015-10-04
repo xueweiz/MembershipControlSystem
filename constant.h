@@ -5,6 +5,9 @@ typedef enum MessageType
 {
     MSG_PING,
     MSG_ACK,
+    MSG_PIGGY,
+    MSG_PIGGY_PING,
+    MSG_PIGGY_ACK,
     MSG_FAIL,
     MSG_JOIN,		//only for TCP connection
     MSG_LEAVE,
@@ -41,6 +44,6 @@ struct Node {
 
 //  in ms
 #define SLEEP_TIME (50)
-#define MAX_LATENCY (500*1000)	//0.1s
+#define MAX_LATENCY (200*1000)	//0.1s
 
 #endif

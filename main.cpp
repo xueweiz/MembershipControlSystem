@@ -28,6 +28,8 @@
 
 using namespace std;
 
+bool firstJoin();
+
 std::vector<Node> nodes;    //store initial nodes
 std::vector<std::string> address;
 
@@ -94,28 +96,76 @@ void getAdress(std::string filename)
 		send back an ack message (TTL=2, type=ACK)
 	else
 		logFile<<"ping message with wrong TTL"
+void pingMsg( Message msg, std::string sender ){
+    if(msg.TTL == 0){
+        msg.type = MSG_ACK;
+        sendUDP( sockfd,  sender, port, (char*)&msg, sizeof(Message) );
+    }
+    else if(msg.TTL == 2){
+        std::string target = getSenderIP(msg.carrierAdd);
+        msg.TTL = 1;
+
+        ipString2Char4(sender, msg.carrierAdd); 
+
+        sendUDP( sockfd,  target, port, (char*)&msg, sizeof(Message) );
+        std::cout << "Weired!: " << sender << " says that " << target << " did not responde..." << std::endl;
+    }
+    else if(msg.TTL == 1){
+        msg.TTL = 2;
+        msg.type = MSG_ACK;
+        sendUDP( sockfd,  sender, port, (char*)&msg, sizeof(Message) );
+        //std::cout << "Weired!: I am alive. Send ack to " << sender << std::endl;
+    }
+    else{
+        logFile<<"pingMsg: this ping message has illegal TTL"<<endl;
+    }
+}
 */
-void pingMsg( Message msg, string sender ){
-	if(msg.TTL == 0){
-		msg.type = MSG_ACK;
-		sendUDP( sockfd,  sender, port, (char*)&msg, sizeof(Message) );
-	}
-	else if(msg.TTL == 2){
-		string target = getSenderIP(msg.carrierAdd);
-		msg.TTL = 1;
+void pingMsg( Message msg, std::string sender )
+{
+	msg.type = MSG_ACK;
+	sendUDP( sockfd,  sender, port, (char*)&msg, sizeof(Message) );
+}
 
-		ipString2Char4(sender, msg.carrierAdd);	
+void ackMsg( Message msg, std::string sender )
+{
+    msgQueueLock.lock();
+    pushMsgQueue(msg);
+    msgQueueLock.unlock();
+}
 
-		sendUDP( sockfd,  target, port, (char*)&msg, sizeof(Message) );
-	}
-	else if(msg.TTL == 1){
-		msg.TTL = 2;
-		msg.type = MSG_ACK;
-		sendUDP( sockfd,  sender, port, (char*)&msg, sizeof(Message) );
-	}
-	else{
-		logFile<<"pingMsg: this ping message has illegal TTL"<<endl;
-	}
+void piggyMsg( Message msg, std::string sender )
+{
+    std::string target = getSenderIP(msg.carrierAdd);
+    msg.type = MSG_PIGGY_PING;
+
+    ipString2Char4(sender, msg.carrierAdd); //Original Sender as carrier
+
+    sendUDP( sockfd,  target, port, (char*)&msg, sizeof(Message) );
+    //std::cout << "Weired!: " << sender << " says that " << target << " did not responde..." << std::endl;
+}
+
+void piggyPingMsg( Message msg, std::string sender )
+{
+    msg.type = MSG_PIGGY_ACK;
+    //ipString2Char4(getSenderIP(msg.carrierAdd), msg.carrierAdd); //Original Sender as carrier
+    sendUDP( sockfd,  sender, port, (char*)&msg, sizeof(Message) );
+
+    //Just in case, we can send the message back to the original sender
+    // Because we can!
+    std::string original = getSenderIP(msg.carrierAdd);
+    msg.type = MSG_ACK;
+    sendUDP( sockfd,  original, port, (char*)&msg, sizeof(Message) );
+}
+
+void piggyAckMsg( Message msg, std::string sender )
+{
+    std::string target = getSenderIP(msg.carrierAdd);
+    msg.type = MSG_ACK;
+
+    ipString2Char4(sender, msg.carrierAdd); //Dont care, but meh
+
+    sendUDP( sockfd,  target, port, (char*)&msg, sizeof(Message) );
 }
 
 /*
@@ -125,26 +175,29 @@ void pingMsg( Message msg, string sender ){
 		send message to carrier (message carrier=sender Addr, TTL = 1)
 	else
 		logFile<<"ack message with wrong TTL"
-*/
-void ackMsg( Message msg, string sender ){
+
+void ackMsg( Message msg, std::string sender ){
 	if(msg.TTL==0 || msg.TTL==1){
 		msgQueueLock.lock();
 		pushMsgQueue(msg);
 		msgQueueLock.unlock();
 	}
 	else if(msg.TTL == 2){
-		string target = getSenderIP(msg.carrierAdd);
+		std::string target = getSenderIP(msg.carrierAdd);
 		msg.TTL = 1;
 
 		ipString2Char4(sender, msg.carrierAdd);	
 
 		sendUDP( sockfd,  target, port, (char*)&msg, sizeof(Message) );
+        //std::cout << "OK!: " << sender << " Is alive. Notify " << target << std::endl;
+
 	}
 	else{
 		logFile<<"ackMsg: this ack message has illegal TTL"<<endl;
 	}
 
 }
+*/
 
 /*
 	fail the carrier node
@@ -152,14 +205,49 @@ void ackMsg( Message msg, string sender ){
 	msg.TTL--;
 	spreadMessage(msg) 
 */
-void failMsg( Message msg, string sender ){
-	if(msg.TTL==0)
-		return;
-	string ip_str = getSenderIP(msg.carrierAdd);
-	logFile<<"failMsg: node "<<ip_str<<" failed"<<endl;
-	failMember(msg.carrierAdd, msg.timeStamp);
-	msg.TTL--;
-	spreadMessage(msg);
+void failMsg( Message msg, std::string sender )
+{
+	std::string carrier = getSenderIP(msg.carrierAdd);
+
+    if ( my_ip_str.compare("carrier") == 0) // THIS IS MY! I NEED TO REJOIN
+    {
+        std::cout <<"they are trying to kill me!" << std::endl;
+            membersLock.lock();
+            members.clear();
+            membersLock.unlock();
+            usleep( 2000*1000 ); // wait 2 second and rejoin
+            bool joined = firstJoin();
+            while( !isIntroducer && !joined)
+            {   //introducer will firstJoin() once. Other node will keep firstJoin() until it enter the group.
+                joined = firstJoin();
+                usleep( 1000*1000 );
+            }
+            return;
+    }
+
+    failMember(carrier, msg.timeStamp);
+    logFile<<"failMsg: node "<<carrier<<" failed"<<endl;
+	//std::cout<<"failMsg: node "<<carrier<<" failed acording to " << sender <<endl;
+
+    int select = rand()%10;
+
+    if (select <= 2) // 1 and 2
+    {
+        Message justInCase;
+        justInCase.type = MSG_FAIL;
+        ipString2Char4(carrier, justInCase.carrierAdd);
+        sendUDP( sockfd,  carrier, port, (char*)&justInCase, sizeof(Message) );
+        // Just in case let the node know so it can rejoin
+    }
+
+    if(msg.TTL==0)
+    {
+        return;
+    }
+    else{
+    	msg.TTL--;
+    	spreadMessage(msg);
+    }
 }
 
 
@@ -178,12 +266,25 @@ void joinMsg( Message msg, string sender ){
 	msg.TTL--;
 	spreadMessage(msg) 
 */
-void leaveMsg( Message msg, string sender ){
-	string ip_str = getSenderIP(msg.carrierAdd);
-	logFile<<"leaveMsg: node "<<ip_str<<" leaved"<<std::endl;
-	failMember(msg.carrierAdd, msg.timeStamp);
-	msg.TTL--;
-	spreadMessage(msg);
+void leaveMsg( Message msg, string sender )
+{
+    std::string carrier = getSenderIP(msg.carrierAdd);
+
+    if ( !checkMember(carrier) ) return; // Already deleted
+
+	failMember(carrier, msg.timeStamp);
+    
+    logFile<<"leaveMsg: node "<<carrier<<" has left"<<std::endl;
+    std::cout<<"leaveMsg: node "<<carrier<<" has left"<<std::endl;
+
+    if(msg.TTL == 0)
+    {
+        return;
+    }
+    else{
+        msg.TTL--;
+        spreadMessage(msg);
+    }
 }
 
 void listeningThread()
@@ -212,29 +313,35 @@ void listeningThread()
             continue;
         }
         
-        if(msg.type == MSG_PING)
+        switch (msg.type)
         {
-        	pingMsg(msg, sender);
-        }
-        else if(msg.type == MSG_ACK)
-        {
-        	ackMsg(msg, sender);
-        }
-        else if(msg.type == MSG_FAIL)
-        {
-        	failMsg(msg, sender);
-        }
-        else if(msg.type == MSG_JOIN)
-        {
-        	joinMsg(msg, sender);
-        }
-        else if(msg.type == MSG_LEAVE)
-        {
-        	leaveMsg(msg, sender);
-        }
-        else
-        {
-        	logFile<<"ERROR: listeningThread: received msg does not belong to a type"<<std::endl;
+            case MSG_PING:  
+                pingMsg(msg, sender);
+                break;
+            case MSG_ACK:
+                ackMsg(msg, sender);
+                break;
+            case MSG_PIGGY:         
+                piggyMsg(msg, sender);
+                break;
+            case MSG_PIGGY_PING:    
+                piggyPingMsg(msg, sender);
+                break;
+            case MSG_PIGGY_ACK:     
+                piggyAckMsg(msg, sender);
+                break;
+            case MSG_FAIL:          
+                failMsg(msg, sender);
+                break;
+            case MSG_JOIN:          
+                joinMsg(msg, sender);
+                break;
+            case MSG_LEAVE:         
+                leaveMsg(msg, sender);
+                break;
+            
+            default:
+        	   logFile<<"ERROR: listeningThread: received msg does not belong to a type"<<std::endl;
         }
 
     }
@@ -273,7 +380,8 @@ int sendBackLocalList(int connFd){
     return 0;
 }
 
-int broadcastJoin(Message income, int i){
+int broadcastJoin(Message income, int i)
+{
 	income.TTL = 0;
 	int connectionToServer;
     //TCP connect to members of introducer
@@ -290,7 +398,7 @@ int broadcastJoin(Message income, int i){
     return 0;
 }
 
-void forJoinThread(){
+void forJoinThread(){ // Will run only in the introducer
     int listenFd = open_socket(port + 1);   //use the port next to UDP as TCP port
     while(true)
     {
@@ -376,10 +484,12 @@ bool firstJoin(){
     for(int i=0; (i < nodes.size()) /*&& !joined*/ ; i++){
         int connectionToServer;
         //TCP connect to introducer/other nodes
-        logFile<<"FirstJoin: try to connect to "<<nodes[i].ip_str<<endl;
+        std::cout<<"Join: Connecting to "<< nodes[i].ip_str << "..." << std::endl;
+        logFile  <<"Join: Connecting to "<< nodes[i].ip_str << "..." << std::endl;
         int ret = connect_to_server(nodes[i].ip_str.c_str(), port + 1, &connectionToServer);
         if(ret!=0){
-            logFile<<"FirstJoin: cannot connect to "<<nodes[i].ip_str<<endl;
+            std:cout<<"Join: Cannot connect to "<<nodes[i].ip_str<<endl;
+            logFile <<"ERROR Join: Cannot connect to "<<nodes[i].ip_str<<endl;
             continue;
         }
         else{
@@ -404,7 +514,8 @@ bool firstJoin(){
                 	addMember(msgs[j].carrierAdd, msgs[j].timeStamp);
             }
             else{
-            	logFile<<"FirstJoin: during downloading membership list, it failed"<<endl;
+                std::cout << "Join: Failed downloading nodes list"<<endl;
+            	logFile   <<"ERROR Join: Failed downloading nodes list"<<endl;
             }
 
             delete [] msgs;
@@ -426,34 +537,35 @@ void listeningCin()
     while (true)
     {
 
-        std::cout << "Type a command (table, leave, join or quit): ";
+        //std::cout << "Type a command (table, leave, join or quit): ";
         getline(std::cin, input);
         //std::cout << "You entered: " << input << std::endl;
 
-        if (input.compare("quit") == 0)
+        if (input.compare("quit") == 0 || input.compare("q") == 0)
         {
             std::cout << "Exiting normally " << std::endl;
             exit(0);
         }
-        else if (input.compare("table") == 0)
+        else if (input.compare("table") == 0 || input.compare("t") == 0)
         {
             std::cout << printMember();
         }
-        else if (input.compare("leave") == 0)
+        else if (input.compare("leave") == 0 || input.compare("l") == 0)
         {
             membersLock.lock();
             Message msg;
-            msg.TTL = 4; // Just in case
+            msg.type = MSG_LEAVE;
+            msg.TTL = 1; // Just in case
             ipString2Char4(members.at(0).ip_str, msg.carrierAdd);
             msg.timeStamp = members.at(0).timeStamp;
             membersLock.unlock();
             spreadMessage(msg); // this method wants the lock!
             membersLock.lock();
-            members.at(0).active = false;
+            //members.at(0).active = false;
             members.clear();
             membersLock.unlock();
         }
-        else if (input.compare("join") == 0)
+        else if (input.compare("join") == 0 || input.compare("j") == 0)
         {
             bool joined = firstJoin();
             while( !isIntroducer && !joined)
@@ -461,6 +573,11 @@ void listeningCin()
                 joined = firstJoin();
                 usleep( 1000*1000 );
             }
+        }
+        else if (input.compare("netstat") == 0 || input.compare("n") == 0)
+        {
+            std::cout << "UDP Stats: Sent: " << getUDPSent();
+            std::cout << " Received: " << getUDPReceived() << std::endl;
         }
         else{
             std::cout << "PLEASE CHECK AGAIN THE POSSIBLE OPTIONS" << std::endl;
@@ -498,7 +615,6 @@ int main (int argc, char* argv[])
         joined = firstJoin();
         usleep( 1000*1000 );
     }
-
 
     std::thread forJoin(forJoinThread);
 

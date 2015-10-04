@@ -37,7 +37,53 @@ void ipString2Char4(std::string ip, char* buf) // buf must be size 4
     ssip >> a; buf[3] = (char)a; 
 }
 
-void spreadMessage(Message msg)
+std::string char42String(char* buf) // buf must be size 4
+{
+    std::stringstream aux;
+    aux << (unsigned int) ((uint8_t)buf[0]) << ".";
+    aux << (unsigned int) ((uint8_t)buf[1]) << ".";
+    aux << (unsigned int) ((uint8_t)buf[2]) << ".";
+    aux << (unsigned int) ((uint8_t)buf[3]);
+
+    return aux.str();
+}
+
+void spreadMessage(Message msg, int forwardNumber)
+{
+    //choose k or size-1 members
+    membersLock.lock();
+    std::vector<Node> selectedNode = members; 
+    membersLock.unlock();
+
+    if (selectedNode.size() < 3) return;   // Not enough nodes to do something
+    // We need to remeve myself and the carrier from the possible list
+
+    selectedNode.erase(selectedNode.begin()); // remove myself
+
+    for (int i = 0; i < selectedNode.size(); ++i)
+    {
+        //std::cout << "comparing: " << selectedNode.at(i).ip_str << " " << char42String(msg.carrierAdd) << std::endl;
+        if ( selectedNode.at(i).ip_str.compare(char42String(msg.carrierAdd)) == 0 )
+        {
+            selectedNode.erase(selectedNode.begin() + i); // remove carrier
+            //std::cout << "equal" << std::endl;
+            break;
+        }
+    }
+
+    int k = forwardNumber == 0 ? K_FORWARD : forwardNumber;
+
+    while (selectedNode.size() > 0 && k > 0)
+    {
+        int random = rand() % selectedNode.size();
+        sendUDP( sockfd, selectedNode[random].ip_str, port, (char*)&msg, sizeof(Message) );
+        selectedNode.erase(selectedNode.begin()+random);
+        k--;
+    }
+}
+
+/*
+void spreadMessage(Message msg, int forwardNumber)
 {
     //choose k or size-1 members
     
@@ -48,7 +94,7 @@ void spreadMessage(Message msg)
     int * selectedInt;
     int selectedSize;
 
-    int k = K_FORWARD;
+    int k = forwardNumber == 0 ? K_FORWARD : forwardNumber;
     if( size-1 <= k ){
         selectedInt = new int[size-1];
         selectedSize = size-1;
@@ -86,7 +132,7 @@ void spreadMessage(Message msg)
         sendUDP( sockfd, selectedNode[i].ip_str, port, (char*)&msg, sizeof(Message) );
     }
 }
-
+*/
 void failureDetected(Node process) // This is the method we call when we detect a failure
 {
     Message msg;

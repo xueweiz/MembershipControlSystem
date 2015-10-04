@@ -54,6 +54,8 @@ int addMember(char * carrierAdd, int timeStamp){
 
     membersLock.unlock();
 
+    std::cout << "New member: " << newMember.ip_str << std::endl;
+
     return exist;
 }
 
@@ -92,7 +94,7 @@ int checkMember(string ip_str, int timeStamp){
 }
 
 //if already failed, return 1. else return 0
-int failMember(string ip_str, int timeStamp){
+int failMember(std::string ip_str, int timeStamp){
 
     membersLock.lock();
 
@@ -102,6 +104,7 @@ int failMember(string ip_str, int timeStamp){
         if( members[i].ip_str.compare( ip_str )==0 && members[i].timeStamp == timeStamp ){
             exist = true;
             position = i;
+            break;
         }
     }
     
@@ -110,6 +113,11 @@ int failMember(string ip_str, int timeStamp){
     }
     
     membersLock.unlock();
+
+    if(exist)
+    {
+        std::cout << "Removing member: " << ip_str << std::endl;
+    }
 
     return !exist;
 }
@@ -183,15 +191,15 @@ void detectThread()
             send fail message to other nodes
             continue
     */
-    while(true){
+    while(true)
+    {
         roundId++;
 
         logFile<< std::endl << "Detection Thread - Round: "<< roundId << " ------------" << std::endl;
         logFile<<printMember();
-
-        //logFile<<std::endl<<std::endl;
         
-        if(members.size() < 2){
+        if(members.size() < 2)
+        {
             usleep(5 * MAX_LATENCY);
             continue;
         }
@@ -211,20 +219,29 @@ void detectThread()
 
         bool acked = false;
 
+        if (queueSize() > 10){
+            std::cout << "Warning!!! queueSize = " << queueSize() << std::endl;
+        }
+
         usleep(MAX_LATENCY);
 
         msgQueueLock.lock();
         acked = ackMsgQueue();
         msgQueueLock.unlock();
 
+        static int count = 0;
         if(acked){
             logFile<<"detectThread: node alive: "<<theNode.ip_str<<" "<<theNode.timeStamp<<std::endl;
+            //std::cout<<"detectThread: node alive: "<<theNode.ip_str<<" "<<count++ << std::endl;
             usleep(4 * MAX_LATENCY);     
             continue;       
         }
 
-        msg.TTL = 2;
-        spreadMessage(msg);
+        //std::cout<<"Hey!!! Node "<<theNode.ip_str<<" did not respond the first time!" << std::endl;
+
+        msg.type = MSG_PIGGY;
+        msg.TTL = 0;
+        spreadMessage(msg,3);
         usleep(4 * MAX_LATENCY);
 
         msgQueueLock.lock();
@@ -233,10 +250,12 @@ void detectThread()
 
         if(acked){
             logFile<<"detectThread: second round found node alive: "<<theNode.ip_str<<" "<<theNode.timeStamp<<std::endl;
+            std::cout <<"detectThread: second round found node alive: "<<theNode.ip_str<<" "<<theNode.timeStamp<<std::endl;
             continue;
         }
         else{
             logFile<<"detectThread: node failed: "<<theNode.ip_str<<" "<<theNode.timeStamp<<std::endl;
+            std::cout<< "detectThread: No ack received: node failed: "<<theNode.ip_str<<" "<<theNode.timeStamp<<std::endl;
             
             failMember(theNode.ip_str, theNode.timeStamp);
 

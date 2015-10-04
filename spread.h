@@ -11,8 +11,9 @@
 using namespace std;
 
 void ipString2Char4(std::string ip, char* buf);
+std::string char42String(char* buf);
 
-void spreadMessage(Message msg);
+void spreadMessage(Message msg, int i = 0);
 
 void failureDetected(Node process); // This is the method we call when we detect a failure
 

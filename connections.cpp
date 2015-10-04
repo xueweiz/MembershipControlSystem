@@ -9,6 +9,19 @@
 
 #include "connections.h"
 
+int UDPsent = 0;
+int UDPreceived = 0;
+
+int getUDPSent()
+{
+    return UDPsent;
+}
+
+int getUDPReceived()
+{
+    return UDPreceived;
+}
+
 int bindSocket(int port)
 {
     struct sockaddr_in svrAdd, clntAdd;
@@ -57,6 +70,8 @@ int receiveUDP(int sockfd, char* buf, uint32_t len, std::string& sender)
 
     sender = inet_ntoa(sin->sin_addr);
 
+    UDPreceived++;
+
     return byte_count;
 }
 
@@ -77,13 +92,19 @@ void sendUDP(int sockfd, std::string& add, int port, char* buf, uint32_t len)
     servaddr.sin_family = AF_INET;
     memcpy((char *) &servaddr.sin_addr.s_addr,(char *) server -> h_addr, server -> h_length);
     servaddr.sin_port = htons(port);
-
+/*
+    srand(time(NULL));
+    int random = rand() % 100;
+    if ((random) <= 30 ) return; 
+*/
     int ret = sendto(sockfd,buf, len, 0, (struct sockaddr *)&servaddr,sizeof(servaddr));
 
     if (ret == -1)
     {
         printf("Error in sendUDP: cannot send\n");
+        return;
     }
+    UDPsent++;
     //printf("Message sent\n");
 }
 
@@ -239,7 +260,7 @@ string getOwnIPAddr(){
     return result;
 }
 
-string getSenderIP(char* carrierAdd){
+std::string getSenderIP(char* carrierAdd){
     std::stringstream ip_ss;
 
     ip_ss << (int)(uint8_t)carrierAdd[0] << ".";

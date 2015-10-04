@@ -20,6 +20,8 @@ int bindSocket(int port);
 int receiveUDP(int sockfd, char* buf, uint32_t len, std::string& sender);
 
 void sendUDP(int sockfd, std::string& add, int port, char* buf, uint32_t len);
+int getUDPSent();
+int getUDPReceived();
 
 //TCP
 int open_socket(int port);
