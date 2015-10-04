@@ -208,38 +208,40 @@ void ackMsg( Message msg, std::string sender ){
 void failMsg( Message msg, std::string sender )
 {
 	std::string carrier = getSenderIP(msg.carrierAdd);
-
-    if ( my_ip_str.compare("carrier") == 0) // THIS IS MY! I NEED TO REJOIN
+/*
+    if ( my_ip_str.compare(carrier) == 0) // THIS IS MY! I NEED TO REJOIN
     {
         std::cout <<"they are trying to kill me!" << std::endl;
-            membersLock.lock();
-            members.clear();
-            membersLock.unlock();
-            usleep( 2000*1000 ); // wait 2 second and rejoin
-            bool joined = firstJoin();
-            while( !isIntroducer && !joined)
-            {   //introducer will firstJoin() once. Other node will keep firstJoin() until it enter the group.
-                joined = firstJoin();
-                usleep( 1000*1000 );
-            }
-            return;
+        membersLock.lock();
+        members.clear();
+        membersLock.unlock();
+        usleep( 2000*1000 ); // wait 2 second and rejoin
+        bool joined = firstJoin();
+        while( !isIntroducer && !joined)
+        {   //introducer will firstJoin() once. Other node will keep firstJoin() until it enter the group.
+            joined = firstJoin();
+            usleep( 1000*1000 );
+        }
+        return;
     }
-
+*/
     failMember(carrier, msg.timeStamp);
     logFile<<"failMsg: node "<<carrier<<" failed"<<endl;
 	//std::cout<<"failMsg: node "<<carrier<<" failed acording to " << sender <<endl;
-
+/*
     int select = rand()%10;
 
-    if (select <= 2) // 1 and 2
+    if (select <= 7) // 1 and 2
+    //if (true) // 1 and 2
     {
         Message justInCase;
         justInCase.type = MSG_FAIL;
+        msg.TTL = 0;
         ipString2Char4(carrier, justInCase.carrierAdd);
         sendUDP( sockfd,  carrier, port, (char*)&justInCase, sizeof(Message) );
         // Just in case let the node know so it can rejoin
     }
-
+*/
     if(msg.TTL==0)
     {
         return;
@@ -275,7 +277,7 @@ void leaveMsg( Message msg, string sender )
 	failMember(carrier, msg.timeStamp);
     
     logFile<<"leaveMsg: node "<<carrier<<" has left"<<std::endl;
-    std::cout<<"leaveMsg: node "<<carrier<<" has left"<<std::endl;
+    //std::cout<<"leaveMsg: node "<<carrier<<" has left"<<std::endl;
 
     if(msg.TTL == 0)
     {
@@ -537,7 +539,7 @@ void listeningCin()
     while (true)
     {
 
-        //std::cout << "Type a command (table, leave, join or quit): ";
+        std::cout << "Type a command (table, leave, join or quit): ";
         getline(std::cin, input);
         //std::cout << "You entered: " << input << std::endl;
 
@@ -590,7 +592,6 @@ void listeningCin()
 
 int main (int argc, char* argv[])
 {
-    srand (time(NULL));
     std::cout << std::endl << "CS425 - MP2: Membership Protocol." ;
     std::cout << std::endl << std::endl;
 
@@ -611,6 +612,8 @@ int main (int argc, char* argv[])
     }
 
     bool joined = firstJoin();
+    srand (time(NULL));
+
     while( !isIntroducer && !joined){   //introducer will firstJoin() once. Other node will keep firstJoin() until it enter the group.
         joined = firstJoin();
         usleep( 1000*1000 );

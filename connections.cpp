@@ -8,6 +8,7 @@
 #include <arpa/inet.h>
 
 #include "connections.h"
+#include "constant.h"
 
 int UDPsent = 0;
 int UDPreceived = 0;
@@ -93,10 +94,16 @@ void sendUDP(int sockfd, std::string& add, int port, char* buf, uint32_t len)
     memcpy((char *) &servaddr.sin_addr.s_addr,(char *) server -> h_addr, server -> h_length);
     servaddr.sin_port = htons(port);
 /*
-    srand(time(NULL));
-    int random = rand() % 100;
-    if ((random) <= 30 ) return; 
+    //int random = rand() % 100;
+    //if ((random) <= 10 ) return; 
+
+    static int counter = 1;
+    if ((counter++) % 4 == 0 ){
+        //std::cout << "Drop message: " << (unsigned int) (((Message* )(buf))->type) << " " << add << std::endl;
+        return; 
+    } 
 */
+
     int ret = sendto(sockfd,buf, len, 0, (struct sockaddr *)&servaddr,sizeof(servaddr));
 
     if (ret == -1)

@@ -54,7 +54,7 @@ int addMember(char * carrierAdd, int timeStamp){
 
     membersLock.unlock();
 
-    std::cout << "New member: " << newMember.ip_str << std::endl;
+    //std::cout << "New member: " << newMember.ip_str << std::endl;
 
     return exist;
 }
@@ -116,7 +116,7 @@ int failMember(std::string ip_str, int timeStamp){
 
     if(exist)
     {
-        std::cout << "Removing member: " << ip_str << std::endl;
+        //std::cout << "Removing member: " << ip_str << std::endl;
     }
 
     return !exist;
@@ -191,21 +191,31 @@ void detectThread()
             send fail message to other nodes
             continue
     */
+    bool flagFail = false;
+    Node failedNode;
     while(true)
     {
+        
         roundId++;
 
         logFile<< std::endl << "Detection Thread - Round: "<< roundId << " ------------" << std::endl;
+        //std::cout<< std::endl << "Detection Thread - Round: "<< roundId << " ------------" << time(NULL) << std::endl;
         logFile<<printMember();
         
         if(members.size() < 2)
         {
             usleep(5 * MAX_LATENCY);
+            flagFail = false;
             continue;
         }
 
         int select = rand()%(members.size()-1) + 1;
         Node theNode = members[select];
+
+        if (flagFail == true)
+        {
+            theNode = failedNode;
+        }
 
         Message msg;
         msg.type = MSG_PING;
@@ -233,6 +243,7 @@ void detectThread()
         if(acked){
             logFile<<"detectThread: node alive: "<<theNode.ip_str<<" "<<theNode.timeStamp<<std::endl;
             //std::cout<<"detectThread: node alive: "<<theNode.ip_str<<" "<<count++ << std::endl;
+            flagFail = false;
             usleep(4 * MAX_LATENCY);     
             continue;       
         }
@@ -250,23 +261,39 @@ void detectThread()
 
         if(acked){
             logFile<<"detectThread: second round found node alive: "<<theNode.ip_str<<" "<<theNode.timeStamp<<std::endl;
-            std::cout <<"detectThread: second round found node alive: "<<theNode.ip_str<<" "<<theNode.timeStamp<<std::endl;
+            //std::cout <<"detectThread: second round found node alive: "<<theNode.ip_str<<" "<<theNode.timeStamp<<std::endl;
+            flagFail = false;
             continue;
         }
         else{
-            logFile<<"detectThread: node failed: "<<theNode.ip_str<<" "<<theNode.timeStamp<<std::endl;
-            std::cout<< "detectThread: No ack received: node failed: "<<theNode.ip_str<<" "<<theNode.timeStamp<<std::endl;
+            //logFile<<"detectThread: node failed: "<<theNode.ip_str<<" "<<theNode.timeStamp<<std::endl;
+            //std::cout<< "detectThread: No ack received: node failed: "<<theNode.ip_str<<" "<<theNode.timeStamp<<std::endl;
             
-            failMember(theNode.ip_str, theNode.timeStamp);
+            if (flagFail == true)
+            {
+                logFile<< "detectThread: No ack received: node failed: "<<theNode.ip_str<<" "<<theNode.timeStamp<<std::endl;
+                //std::cout<< "detectThread: No ack received: node failed: "<<theNode.ip_str<<" "<<theNode.timeStamp<<std::endl;
+                failMember(theNode.ip_str, theNode.timeStamp);
 
-            Message failMsg;
-            failMsg.type = MSG_FAIL;
-            failMsg.roundId = roundId;
-            ipString2Char4(theNode.ip_str, failMsg.carrierAdd);
-            failMsg.timeStamp = theNode.timeStamp;
-            failMsg.TTL = 3;
+                Message failMsg;
+                failMsg.type = MSG_FAIL;
+                failMsg.roundId = roundId;
+                ipString2Char4(theNode.ip_str, failMsg.carrierAdd);
+                failMsg.timeStamp = theNode.timeStamp;
+                failMsg.TTL = 3;
 
-            spreadMessage(failMsg);
+                spreadMessage(failMsg);
+                flagFail = false;
+            }
+            else
+            {
+                //std::cout<< "detectThread: Robust 2: It is alive: "<<theNode.ip_str<<" "<<theNode.timeStamp<<std::endl;
+                logFile<< "detectThread: Robust 2: It is alive: "<<theNode.ip_str<<" "<<theNode.timeStamp<<std::endl;
+                failedNode = theNode;
+                flagFail = true;
+
+            }
+
 
             continue;
         }
