@@ -431,7 +431,6 @@ void forJoinThread(){ // Will run only in the introducer
         	addMember(income.carrierAdd, income.timeStamp);
         }
         else{	//this node is an introducer
-        	usleep( 100*1000 );	//wait to make sure last joined member has enough time to open TCP listening port
 
         	//send back local list
         	sendBackLocalList(connFd);
@@ -439,6 +438,8 @@ void forJoinThread(){ // Will run only in the introducer
         	//add carrier node
         	addMember(income.carrierAdd, income.timeStamp);
         	
+        	usleep( 10*1000 );	//wait to make sure last joined member has enough time to open TCP listening port
+
         	//tell everyone carrier node is joining
         	membersLock.lock();
         	thread ** broadThreads = new thread*[members.size() ];	//members[0] is introducer itself, members[size-1] is the node just joined
