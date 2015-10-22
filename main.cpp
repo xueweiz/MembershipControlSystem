@@ -431,7 +431,8 @@ void forJoinThread(){ // Will run only in the introducer
         	addMember(income.carrierAdd, income.timeStamp);
         }
         else{	//this node is an introducer
-        	
+        	usleep( 100*1000 );	//wait to make sure last joined member has enough time to open TCP listening port
+
         	//send back local list
         	sendBackLocalList(connFd);
         	
@@ -460,10 +461,7 @@ void forJoinThread(){ // Will run only in the introducer
 
 bool firstJoin(){
     logFile<<"calling firstJoin"<<endl;
-   
-    roundLock.lock();
-    roundId = 0;
-    roundLock.unlock();
+
 
     //set my own addr, ip, timeStamp, roundID
     myTimeStamp = time(NULL);
@@ -492,6 +490,10 @@ bool firstJoin(){
         if(ret!=0){
             std:cout<<"Join: Cannot connect to "<<nodes[i].ip_str<<endl;
             logFile <<"ERROR Join: Cannot connect to "<<nodes[i].ip_str<<endl;
+            if(!isIntroducer){
+            	i--;
+            	usleep(200*1000);
+            }
             continue;
         }
         else{
@@ -573,7 +575,7 @@ void listeningCin()
             while( !isIntroducer && !joined)
             {   //introducer will firstJoin() once. Other node will keep firstJoin() until it enter the group.
                 joined = firstJoin();
-                usleep( 1000*1000 );
+                //usleep( 1000*1000 );
             }
         }
         else if (input.compare("netstat") == 0 || input.compare("n") == 0)
@@ -611,12 +613,16 @@ int main (int argc, char* argv[])
         getAdress("AddrIntro.add");
     }
 
+    roundLock.lock();
+    roundId = 0;
+    roundLock.unlock();
+
     bool joined = firstJoin();
     srand (time(NULL));
 
     while( !isIntroducer && !joined){   //introducer will firstJoin() once. Other node will keep firstJoin() until it enter the group.
         joined = firstJoin();
-        usleep( 1000*1000 );
+        //usleep( 1000*1000 );
     }
 
     std::thread forJoin(forJoinThread);
