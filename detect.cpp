@@ -196,7 +196,7 @@ void detectThread()
     while(true)
     {
         
-        roundId++;
+        roundId = (roundId+1)%255;
 
         logFile<< std::endl << "Detection Thread - Round: "<< roundId << " ------------" << std::endl;
         //std::cout<< std::endl << "Detection Thread - Round: "<< roundId << " ------------" << time(NULL) << std::endl;
